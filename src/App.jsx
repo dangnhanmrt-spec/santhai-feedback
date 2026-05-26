@@ -734,19 +734,24 @@ function InputFeedback({ feedbacks, onSave, onDelete, user, userRole }) {
   async function handleSubmit() {
     if (!validate()) return;
     setSaving(true);
-    const fb = {
-      id: editId || uid(),
-      storeId: form.storeId,
-      errorType: form.errorType,
-      date: form.date,
-      note: form.note,
-      submittedBy: user?.email || "unknown",
-    };
-    await onSave(fb);
-    setForm(emptyForm);
-    setEditId(null);
-    setErrors({});
-    setSaving(false);
+    try {
+      const fb = {
+        id: editId || uid(),
+        storeId: form.storeId,
+        errorType: form.errorType,
+        date: form.date,
+        note: form.note,
+        submittedBy: user?.email || "unknown",
+      };
+      await onSave(fb);
+      setForm(emptyForm);
+      setEditId(null);
+      setErrors({});
+    } catch (err) {
+      alert("Lỗi khi lưu: " + (err?.message || "Không xác định. Vui lòng thử lại."));
+    } finally {
+      setSaving(false);
+    }
   }
 
   function startEdit(fb) {
@@ -1083,7 +1088,8 @@ export default function App() {
   }, [user, userRole]);
 
   const handleSave = useCallback(async (fb) => {
-    await saveFeedback(fb);
+    const result = await saveFeedback(fb);
+    if (result) setDbStatus("supabase");
     await writeLog(user?.email, user?.displayName || user?.email, fb.id ? "update" : "create", "feedback",
       STORE_MAP[fb.storeId]?.name || fb.storeId, `${fb.errorType} | ${fb.date}`);
     const list = await loadFeedbacks();
