@@ -179,6 +179,7 @@ function weekLabel(weekStart) {
 // Alert thresholds
 const ALERT_RED = 3;    // ≥3 lỗi/tuần → đỏ
 const ALERT_YELLOW = 2; // 2 lỗi/tuần → vàng
+const SUPER_ADMIN = "dangnhan.mrt@gmail.com"; // Quyền cao nhất — không ai xóa được
 
 function alertLevel(count) {
   if (count >= ALERT_RED) return "red";
@@ -912,11 +913,13 @@ function InputFeedback({ feedbacks, onSave, onDelete, user, userRole }) {
 /* ═══════════════════════════════════════════════════
    ADMIN TAB
    ═══════════════════════════════════════════════════ */
-function AdminPanel({ user }) {
+function AdminPanel({ user, userRole }) {
   const [emails, setEmails] = useState([]);
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("viewer");
   const [loading, setLoading] = useState(false);
+
+  const isSuperAdmin = user?.email === SUPER_ADMIN;
 
   useEffect(() => {
     loadAllowedEmails().then(setEmails);
@@ -924,6 +927,8 @@ function AdminPanel({ user }) {
 
   async function addEmail() {
     if (!newEmail.trim() || !newEmail.includes("@")) return;
+    // Admin thường không được thêm admin
+    if (!isSuperAdmin && newRole === "admin") return;
     setLoading(true);
     await saveAllowedEmail(newEmail.trim(), newRole);
     await writeLog(user?.email, user?.displayName, "create", "email", newEmail.trim(), `role: ${newRole}`);
@@ -940,9 +945,33 @@ function AdminPanel({ user }) {
     setEmails(list);
   }
 
+  // Kiểm tra có được phép xóa email này không
+  function canDelete(targetEmail, targetRole) {
+    if (targetEmail === SUPER_ADMIN) return false;         // Không ai xóa Super Admin
+    if (targetEmail === user?.email) return false;          // Không tự xóa mình
+    if (isSuperAdmin) return true;                         // Super Admin xóa được tất cả
+    if (targetRole === "admin") return false;               // Admin không xóa admin khác
+    return true;                                           // Admin xóa được viewer
+  }
+
+  const roleLabel = (role, email) => {
+    if (email === SUPER_ADMIN) return { label: "👑 Super Admin", bg: "rgba(234,179,8,0.2)", color: "#facc15" };
+    if (role === "admin") return { label: "🔑 Admin", bg: "rgba(99,102,241,0.2)", color: "#a5b4fc" };
+    return { label: "👁 Viewer", bg: "rgba(56,189,248,0.15)", color: "#7dd3fc" };
+  };
+
   return (
     <div>
       <div style={{ fontSize: 20, fontWeight: 700, color: "#e0e7ef", marginBottom: 20 }}>⚙️ Quản lý quyền truy cập</div>
+
+      {/* Phân quyền hiện tại */}
+      <div style={{ ...S.card, borderColor: "rgba(234,179,8,0.2)", marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: "#7a8fa5", lineHeight: 1.8 }}>
+          <strong style={{ color: "#facc15" }}>👑 Super Admin</strong> — Thêm/xóa tất cả, bao gồm Admin<br/>
+          <strong style={{ color: "#a5b4fc" }}>🔑 Admin</strong> — Thêm/xóa Viewer, không thêm/xóa Admin<br/>
+          <strong style={{ color: "#7dd3fc" }}>👁 Viewer</strong> — Chỉ xem dữ liệu, không chỉnh sửa
+        </div>
+      </div>
 
       <div style={S.card}>
         <div style={S.cardTitle}>➕ Thêm email được phép</div>
@@ -956,7 +985,7 @@ function AdminPanel({ user }) {
           />
           <select style={{ ...S.sel, flex: 1, minWidth: 120 }} value={newRole} onChange={e => setNewRole(e.target.value)}>
             <option value="viewer">Viewer (chỉ xem)</option>
-            <option value="admin">Admin (full)</option>
+            {isSuperAdmin && <option value="admin">Admin</option>}
           </select>
           <button style={{ ...S.btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={addEmail} disabled={loading}>
             Thêm
@@ -970,28 +999,34 @@ function AdminPanel({ user }) {
           <div style={{ color: "#556677", fontSize: 13 }}>Chưa có email nào. Bắt đầu thêm ở trên.</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {emails.map(e => (
-              <div key={e.email} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "10px 14px", background: "rgba(255,255,255,0.025)",
-                border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8,
-              }}>
-                <div>
-                  <div style={{ fontSize: 14, color: "#dde6f0" }}>{e.email}</div>
-                  <div style={{ fontSize: 11, marginTop: 2 }}>
-                    <span style={{
-                      padding: "2px 8px", borderRadius: 8,
-                      background: e.role === "admin" ? "rgba(99,102,241,0.2)" : "rgba(56,189,248,0.15)",
-                      color: e.role === "admin" ? "#a5b4fc" : "#7dd3fc",
-                      fontSize: 11, fontWeight: 600,
-                    }}>{e.role === "admin" ? "🔑 Admin" : "👁 Viewer"}</span>
+            {emails.map(e => {
+              const rl = roleLabel(e.role, e.email);
+              const deletable = canDelete(e.email, e.role);
+              return (
+                <div key={e.email} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "10px 14px", background: "rgba(255,255,255,0.025)",
+                  border: e.email === SUPER_ADMIN ? "1px solid rgba(234,179,8,0.25)" : "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 8,
+                }}>
+                  <div>
+                    <div style={{ fontSize: 14, color: "#dde6f0" }}>{e.email}</div>
+                    <div style={{ fontSize: 11, marginTop: 2 }}>
+                      <span style={{ padding: "2px 8px", borderRadius: 8, background: rl.bg, color: rl.color, fontSize: 11, fontWeight: 600 }}>
+                        {rl.label}
+                      </span>
+                    </div>
                   </div>
+                  {deletable ? (
+                    <button style={S.btnDanger} onClick={() => removeEmail(e.email)}>Xóa</button>
+                  ) : (
+                    <span style={{ fontSize: 11, color: "#3a4d60" }}>
+                      {e.email === SUPER_ADMIN ? "🔒 Không thể xóa" : e.email === user?.email ? "" : "🔒"}
+                    </span>
+                  )}
                 </div>
-                {e.email !== user?.email && (
-                  <button style={S.btnDanger} onClick={() => removeEmail(e.email)}>Xóa</button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1186,7 +1221,7 @@ export default function App() {
             userRole={userRole}
           />
         )}
-        {tab === "admin" && userRole === "admin" && <AdminPanel user={user} />}
+        {tab === "admin" && userRole === "admin" && <AdminPanel user={user} userRole={userRole} />}
 
         <div style={{
           textAlign: "center", marginTop: 40, paddingTop: 16,
