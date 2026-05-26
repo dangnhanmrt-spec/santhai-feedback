@@ -347,20 +347,58 @@ function LoginScreen() {
    ACCESS DENIED SCREEN
    ═══════════════════════════════════════════════════ */
 function AccessDenied({ user, onSignOut }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleSignOut() {
+    setLoading(true);
+    await onSignOut();
+    window.location.href = window.location.origin;
+  }
+
+  async function handleSwitch() {
+    setLoading(true);
+    await onSignOut();
+    setTimeout(() => signInWithGoogle(), 800);
+  }
+
   return (
     <div style={{ ...S.app, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       <div style={{
         background: "rgba(255,255,255,0.03)", border: "1px solid rgba(239,68,68,0.2)",
-        borderRadius: 20, padding: "40px", textAlign: "center", maxWidth: 380,
+        borderRadius: 20, padding: "40px", textAlign: "center", maxWidth: 400,
       }}>
         <div style={{ fontSize: 48 }}>🚫</div>
         <h2 style={{ color: "#f87171", marginBottom: 8 }}>Không có quyền truy cập</h2>
-        <p style={{ color: "#7a8fa5", fontSize: 13, marginBottom: 20 }}>
+        <p style={{ color: "#7a8fa5", fontSize: 13, marginBottom: 28 }}>
           Email <strong style={{ color: "#dde6f0" }}>{user?.email}</strong> chưa được cấp quyền.<br />
           Vui lòng liên hệ Admin.
         </p>
-        <button onClick={onSignOut} style={S.btnGhost}>Đăng xuất</button>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={handleSignOut}
+            disabled={loading}
+            style={{
+              ...S.btnGhost,
+              padding: "10px 20px", fontSize: 13,
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            🚪 Đăng xuất
+          </button>
+          <button
+            onClick={handleSwitch}
+            disabled={loading}
+            style={{
+              ...S.btnPrimary,
+              padding: "10px 20px", fontSize: 13,
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            🔄 Đổi tài khoản Google
+          </button>
+        </div>
+        {loading && <div style={{ color: "#7a8fa5", fontSize: 12, marginTop: 12 }}>Đang xử lý...</div>}
       </div>
     </div>
   );
