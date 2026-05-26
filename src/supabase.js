@@ -15,11 +15,12 @@ export async function signInWithGoogle() {
 
 export async function signOut() {
   await supabase.auth.signOut();
+  try { localStorage.clear(); } catch (e) {}
 }
 
-export async function getUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+export async function getSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
 }
 
 export function onAuthChange(callback) {
@@ -27,48 +28,63 @@ export function onAuthChange(callback) {
 }
 
 export async function checkEmailAccess(email) {
-  const { data, error } = await supabase
-    .from('allowed_emails')
-    .select('role')
-    .eq('email', email.toLowerCase().trim())
-    .single();
-  if (error || !data) return null;
-  return data.role;
+  if (!email) return null;
+  try {
+    const { data, error } = await supabase
+      .from('allowed_emails')
+      .select('role')
+      .eq('email', email.toLowerCase().trim())
+      .maybeSingle();
+    if (error) {
+      console.warn('[checkEmailAccess] query error:', error.message);
+      return null;
+    }
+    return data?.role || null;
+  } catch (err) {
+    console.warn('[checkEmailAccess] exception:', err);
+    return null;
+  }
 }
 
 export async function loadAllowedEmails() {
-  const { data, error } = await supabase
-    .from('allowed_emails').select('*').order('created_at', { ascending: true });
-  if (error) return [];
-  return data || [];
+  try {
+    const { data, error } = await supabase
+      .from('allowed_emails').select('*').order('created_at', { ascending: true });
+    if (error) { console.warn('[loadAllowedEmails]', error.message); return []; }
+    return data || [];
+  } catch (err) { console.warn('[loadAllowedEmails]', err); return []; }
 }
 
 export async function saveAllowedEmail(email, role) {
   const { error } = await supabase
     .from('allowed_emails')
     .upsert({ email: email.toLowerCase().trim(), role }, { onConflict: 'email' });
+  if (error) console.warn('[saveAllowedEmail]', error.message);
   return !error;
 }
 
 export async function deleteAllowedEmail(email) {
   const { error } = await supabase
     .from('allowed_emails').delete().eq('email', email);
+  if (error) console.warn('[deleteAllowedEmail]', error.message);
   return !error;
 }
 
 export async function loadFeedbacks() {
-  const { data, error } = await supabase
-    .from('feedbacks').select('*').order('feedback_date', { ascending: false });
-  if (error) return [];
-  return data.map(r => ({
-    id: r.id,
-    storeId: r.store_id,
-    errorType: r.error_type,
-    date: r.feedback_date,
-    note: r.note || '',
-    submittedBy: r.submitted_by || '',
-    createdAt: r.created_at,
-  }));
+  try {
+    const { data, error } = await supabase
+      .from('feedbacks').select('*').order('feedback_date', { ascending: false });
+    if (error) { console.warn('[loadFeedbacks]', error.message); return []; }
+    return (data || []).map(r => ({
+      id: r.id,
+      storeId: r.store_id,
+      errorType: r.error_type,
+      date: r.feedback_date,
+      note: r.note || '',
+      submittedBy: r.submitted_by || '',
+      createdAt: r.created_at,
+    }));
+  } catch (err) { console.warn('[loadFeedbacks]', err); return []; }
 }
 
 export async function saveFeedback(fb) {
@@ -80,20 +96,27 @@ export async function saveFeedback(fb) {
     note: fb.note || '',
     submitted_by: fb.submittedBy || '',
   }, { onConflict: 'id' });
-  return !error;
+  if (error) {
+    console.warn('[saveFeedback]', error.message);
+    throw new Error(error.message);
+  }
+  return true;
 }
 
 export async function deleteFeedback(id) {
   const { error } = await supabase.from('feedbacks').delete().eq('id', id);
+  if (error) console.warn('[deleteFeedback]', error.message);
   return !error;
 }
 
 export async function writeLog(userEmail, userName, action, targetType, targetName, detail) {
-  await supabase.from('audit_log_feedback').insert({
-    user_email: userEmail || 'unknown',
-    user_name: userName || '',
-    action, target_type: targetType,
-    target_name: targetName || '',
-    detail: detail || '',
-  });
+  try {
+    await supabase.from('audit_log_feedback').insert({
+      user_email: userEmail || 'unknown',
+      user_name: userName || '',
+      action, target_type: targetType,
+      target_name: targetName || '',
+      detail: detail || '',
+    });
+  } catch (err) { /* silent */ }
 }
