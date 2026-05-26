@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   loadFeedbacks, saveFeedback, deleteFeedback,
   loadAllowedEmails, saveAllowedEmail, deleteAllowedEmail,
-  signInWithGoogle, signOut, onAuthChange, checkEmailAccess, writeLog,
+  signInWithGoogle, signOut, getSession, onAuthChange, checkEmailAccess, writeLog,
 } from "./supabase.js";
 
 /* ═══════════════════════════════════════════════════
@@ -349,16 +349,26 @@ function LoginScreen() {
 function AccessDenied({ user, onSignOut }) {
   const [loading, setLoading] = useState(false);
 
-  async function handleSignOut() {
+  async function hardReset() {
     setLoading(true);
-    await onSignOut();
-    window.location.replace(window.location.origin);
+    try { await onSignOut(); } catch (e) {}
+    try { localStorage.clear(); } catch (e) {}
+    try { sessionStorage.clear(); } catch (e) {}
+    // Clear cookies cho domain hiện tại
+    try {
+      document.cookie.split(";").forEach(c => {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+    } catch (e) {}
+    setTimeout(() => { window.location.href = window.location.origin; }, 200);
   }
 
-  async function handleSwitch() {
+  async function switchAccount() {
     setLoading(true);
-    await onSignOut();
-    window.location.replace(window.location.origin);
+    try { await onSignOut(); } catch (e) {}
+    try { localStorage.clear(); } catch (e) {}
+    try { sessionStorage.clear(); } catch (e) {}
+    setTimeout(() => { signInWithGoogle(); }, 500);
   }
 
   return (
@@ -366,35 +376,21 @@ function AccessDenied({ user, onSignOut }) {
       <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       <div style={{
         background: "rgba(255,255,255,0.03)", border: "1px solid rgba(239,68,68,0.2)",
-        borderRadius: 20, padding: "40px", textAlign: "center", maxWidth: 400,
+        borderRadius: 20, padding: "40px", textAlign: "center", maxWidth: 420,
       }}>
         <div style={{ fontSize: 48 }}>🚫</div>
         <h2 style={{ color: "#f87171", marginBottom: 8 }}>Không có quyền truy cập</h2>
-        <p style={{ color: "#7a8fa5", fontSize: 13, marginBottom: 28 }}>
+        <p style={{ color: "#7a8fa5", fontSize: 13, marginBottom: 24 }}>
           Email <strong style={{ color: "#dde6f0" }}>{user?.email}</strong> chưa được cấp quyền.<br />
           Vui lòng liên hệ Admin.
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-          <button
-            onClick={handleSignOut}
-            disabled={loading}
-            style={{
-              ...S.btnGhost,
-              padding: "10px 20px", fontSize: 13,
-              opacity: loading ? 0.6 : 1,
-            }}
-          >
+          <button onClick={hardReset} disabled={loading}
+            style={{ ...S.btnGhost, padding: "10px 20px", fontSize: 13, opacity: loading ? 0.6 : 1 }}>
             🚪 Đăng xuất
           </button>
-          <button
-            onClick={handleSwitch}
-            disabled={loading}
-            style={{
-              ...S.btnPrimary,
-              padding: "10px 20px", fontSize: 13,
-              opacity: loading ? 0.6 : 1,
-            }}
-          >
+          <button onClick={switchAccount} disabled={loading}
+            style={{ ...S.btnPrimary, padding: "10px 20px", fontSize: 13, opacity: loading ? 0.6 : 1 }}>
             🔄 Đổi tài khoản Google
           </button>
         </div>
@@ -1053,19 +1049,43 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [dbStatus, setDbStatus] = useState("local");
 
-  // Auth listener — single source of truth, no race condition
+  // Auth: dùng getSession() trên mount + lắng nghe state changes
   useEffect(() => {
     let mounted = true;
 
+    async function init() {
+      try {
+        const session = await getSession();
+        if (!mounted) return;
+        const u = session?.user || null;
+        setUser(u);
+        if (u) {
+          const role = await checkEmailAccess(u.email);
+          if (mounted) setUserRole(role);
+        } else {
+          setUserRole(null);
+        }
+      } catch (err) {
+        console.warn("[Auth init] error:", err);
+        if (mounted) { setUser(null); setUserRole(null); }
+      }
+    }
+
+    init();
+
     const { data: { subscription } } = onAuthChange(async (event, session) => {
       if (!mounted) return;
-      const u = session?.user || null;
-      setUser(u);
-      if (u) {
-        const role = await checkEmailAccess(u.email);
-        if (mounted) setUserRole(role);
-      } else {
-        setUserRole(null);
+      if (event === "SIGNED_OUT") {
+        setUser(null); setUserRole(null);
+        return;
+      }
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        const u = session?.user || null;
+        setUser(u);
+        if (u) {
+          const role = await checkEmailAccess(u.email);
+          if (mounted) setUserRole(role);
+        }
       }
     });
 
