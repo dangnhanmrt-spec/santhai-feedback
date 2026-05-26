@@ -346,29 +346,20 @@ function LoginScreen() {
 /* ═══════════════════════════════════════════════════
    ACCESS DENIED SCREEN
    ═══════════════════════════════════════════════════ */
-function AccessDenied({ user, onSignOut }) {
-  const [loading, setLoading] = useState(false);
-
-  async function hardReset() {
-    setLoading(true);
-    try { await onSignOut(); } catch (e) {}
+function AccessDenied({ user, authError, onSignOut }) {
+  // SYNC logout — không dùng async để tránh treo
+  function hardReset() {
+    try { onSignOut(); } catch (e) {}
     try { localStorage.clear(); } catch (e) {}
     try { sessionStorage.clear(); } catch (e) {}
-    // Clear cookies cho domain hiện tại
-    try {
-      document.cookie.split(";").forEach(c => {
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-      });
-    } catch (e) {}
-    setTimeout(() => { window.location.href = window.location.origin; }, 200);
+    window.location.replace(window.location.origin);
   }
 
-  async function switchAccount() {
-    setLoading(true);
-    try { await onSignOut(); } catch (e) {}
+  function switchAccount() {
+    try { onSignOut(); } catch (e) {}
     try { localStorage.clear(); } catch (e) {}
     try { sessionStorage.clear(); } catch (e) {}
-    setTimeout(() => { signInWithGoogle(); }, 500);
+    setTimeout(() => signInWithGoogle(), 300);
   }
 
   return (
@@ -385,16 +376,21 @@ function AccessDenied({ user, onSignOut }) {
           Vui lòng liên hệ Admin.
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-          <button onClick={hardReset} disabled={loading}
-            style={{ ...S.btnGhost, padding: "10px 20px", fontSize: 13, opacity: loading ? 0.6 : 1 }}>
+          <button onClick={hardReset}
+            style={{ ...S.btnGhost, padding: "10px 20px", fontSize: 13 }}>
             🚪 Đăng xuất
           </button>
-          <button onClick={switchAccount} disabled={loading}
-            style={{ ...S.btnPrimary, padding: "10px 20px", fontSize: 13, opacity: loading ? 0.6 : 1 }}>
+          <button onClick={switchAccount}
+            style={{ ...S.btnPrimary, padding: "10px 20px", fontSize: 13 }}>
             🔄 Đổi tài khoản Google
           </button>
         </div>
-        {loading && <div style={{ color: "#7a8fa5", fontSize: 12, marginTop: 12 }}>Đang xử lý...</div>}
+        {authError && (
+          <div style={{ color: "#f87171", fontSize: 11, marginTop: 14, padding: "8px 12px",
+            background: "rgba(239,68,68,0.08)", borderRadius: 8, textAlign: "left" }}>
+            Lỗi: {authError}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1049,43 +1045,54 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [dbStatus, setDbStatus] = useState("local");
 
-  // Auth: dùng getSession() trên mount + lắng nghe state changes
+  const [authError, setAuthError] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  // Auth: chỉ render UI khi đã check XONG cả session + role
   useEffect(() => {
     let mounted = true;
 
-    async function init() {
+    async function checkAuth() {
       try {
         const session = await getSession();
         if (!mounted) return;
+
         const u = session?.user || null;
-        setUser(u);
-        if (u) {
-          const role = await checkEmailAccess(u.email);
-          if (mounted) setUserRole(role);
-        } else {
-          setUserRole(null);
+
+        if (!u) {
+          setUser(null); setUserRole(null); setAuthChecking(false);
+          return;
         }
+
+        // Có user → check role
+        const role = await checkEmailAccess(u.email);
+        if (!mounted) return;
+
+        // Set CẢ HAI cùng lúc để không flash màn AccessDenied
+        setUser(u);
+        setUserRole(role);
+        if (role === null) setAuthError(`Email ${u.email} không có trong danh sách cho phép.`);
+        setAuthChecking(false);
       } catch (err) {
-        console.warn("[Auth init] error:", err);
-        if (mounted) { setUser(null); setUserRole(null); }
+        console.error("[checkAuth]", err);
+        if (mounted) {
+          setAuthError("Lỗi kết nối: " + (err?.message || "unknown"));
+          setUser(null); setUserRole(null); setAuthChecking(false);
+        }
       }
     }
 
-    init();
+    checkAuth();
 
-    const { data: { subscription } } = onAuthChange(async (event, session) => {
+    const { data: { subscription } } = onAuthChange((event, session) => {
       if (!mounted) return;
       if (event === "SIGNED_OUT") {
-        setUser(null); setUserRole(null);
+        setUser(null); setUserRole(null); setAuthError(null);
         return;
       }
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
-        const u = session?.user || null;
-        setUser(u);
-        if (u) {
-          const role = await checkEmailAccess(u.email);
-          if (mounted) setUserRole(role);
-        }
+      if (event === "SIGNED_IN") {
+        // Chạy lại check
+        checkAuth();
       }
     });
 
@@ -1121,8 +1128,8 @@ export default function App() {
     setFeedbacks(prev => prev.filter(f => f.id !== id));
   }, [feedbacks, user]);
 
-  // Loading
-  if (user === undefined) {
+  // Đang check auth — chờ xong mới render
+  if (authChecking) {
     return (
       <div style={{ ...S.app, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -1131,11 +1138,11 @@ export default function App() {
     );
   }
 
-  // Not logged in
+  // Chưa đăng nhập
   if (!user) return <LoginScreen />;
 
-  // Access check
-  if (!userRole) return <AccessDenied user={user} onSignOut={signOut} />;
+  // Đã đăng nhập nhưng không có quyền
+  if (!userRole) return <AccessDenied user={user} authError={authError} onSignOut={signOut} />;
 
   const TABS = [
     { id: "dashboard", label: "📊 Dashboard" },
