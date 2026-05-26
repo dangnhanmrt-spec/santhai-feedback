@@ -352,13 +352,13 @@ function AccessDenied({ user, onSignOut }) {
   async function handleSignOut() {
     setLoading(true);
     await onSignOut();
-    window.location.href = window.location.origin;
+    window.location.replace(window.location.origin);
   }
 
   async function handleSwitch() {
     setLoading(true);
     await onSignOut();
-    setTimeout(() => signInWithGoogle(), 800);
+    window.location.replace(window.location.origin);
   }
 
   return (
