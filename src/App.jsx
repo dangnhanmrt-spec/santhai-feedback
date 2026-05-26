@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   loadFeedbacks, saveFeedback, deleteFeedback,
   loadAllowedEmails, saveAllowedEmail, deleteAllowedEmail,
-  signInWithGoogle, signOut, getUser, onAuthChange, checkEmailAccess, writeLog,
+  signInWithGoogle, signOut, onAuthChange, checkEmailAccess, writeLog,
 } from "./supabase.js";
 
 /* ═══════════════════════════════════════════════════
@@ -1053,29 +1053,26 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [dbStatus, setDbStatus] = useState("local");
 
-  // Auth listener
+  // Auth listener — single source of truth, no race condition
   useEffect(() => {
+    let mounted = true;
+
     const { data: { subscription } } = onAuthChange(async (event, session) => {
+      if (!mounted) return;
       const u = session?.user || null;
       setUser(u);
       if (u) {
         const role = await checkEmailAccess(u.email);
-        setUserRole(role);
+        if (mounted) setUserRole(role);
       } else {
         setUserRole(null);
       }
     });
-    // Also check current user
-    getUser().then(async u => {
-      if (u !== undefined) {
-        setUser(u || null);
-        if (u) {
-          const role = await checkEmailAccess(u.email);
-          setUserRole(role);
-        }
-      }
-    });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Load feedbacks
@@ -1083,7 +1080,7 @@ export default function App() {
     if (!user || !userRole) return;
     loadFeedbacks().then(list => {
       setFeedbacks(list);
-      setDbStatus(list.length > 0 ? "local" : "local");
+      setDbStatus("supabase");
     });
   }, [user, userRole]);
 
