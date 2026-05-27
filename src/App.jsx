@@ -128,6 +128,13 @@ const ERROR_TYPES = [
   "Sai định lượng",
 ];
 
+// Loại lỗi nghiêm trọng — 1 lỗi/tuần là đã cảnh báo đỏ ngay
+const CRITICAL_TYPES = [
+  "Chất lượng sản phẩm",
+  "Vật thể lạ trong sản phẩm",
+  "Thái độ/chất lượng phục vụ",
+];
+
 // Flatten stores map
 const STORE_MAP = {};
 const ALL_STORES = [];
@@ -201,14 +208,16 @@ const S = {
     background: "rgba(13,22,37,0.95)",
     backdropFilter: "blur(16px)",
     borderBottom: "1px solid rgba(255,255,255,0.07)",
-    padding: "0 28px",
+    padding: "0 16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    height: 60,
+    flexWrap: "wrap",
+    minHeight: 60,
     position: "sticky",
     top: 0,
     zIndex: 50,
+    gap: 8,
   },
   logo: {
     fontSize: 18, fontWeight: 700,
@@ -216,7 +225,7 @@ const S = {
     WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
     letterSpacing: "-0.3px",
   },
-  nav: { display: "flex", gap: 4 },
+  nav: { display: "flex", gap: 4, flexWrap: "wrap" },
   tabBtn: (active) => ({
     padding: "6px 16px",
     borderRadius: 8,
@@ -431,7 +440,16 @@ function Dashboard({ feedbacks }) {
       if (store) regionCounts[store.regionId] = (regionCounts[store.regionId] || 0) + 1;
     });
 
-    return { thisWeek, lastWeek, redStores, yellowStores, storeCounts, topErrors, regionCounts };
+    // Cửa hàng có lỗi nghiêm trọng tuần này (≥1 lỗi CRITICAL_TYPES)
+    const criticalAlerts = [];
+    thisWeek.forEach(f => {
+      if (CRITICAL_TYPES.includes(f.errorType)) {
+        const store = STORE_MAP[f.storeId];
+        criticalAlerts.push({ store, errorType: f.errorType, date: f.date, id: f.id });
+      }
+    });
+
+    return { thisWeek, lastWeek, redStores, yellowStores, storeCounts, topErrors, regionCounts, criticalAlerts };
   }, [feedbacks, thisWeekStart]);
 
   const StatCard = ({ icon, label, value, sub, color }) => (
@@ -445,20 +463,63 @@ function Dashboard({ feedbacks }) {
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#e0e7ef", marginBottom: 4 }}>📊 Tổng quan</div>
         <div style={{ fontSize: 13, color: "#7a8fa5" }}>Tuần hiện tại: {weekLabel(thisWeekStart)}</div>
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+      {/* CRITICAL ALERT BANNER — hiện trên cùng nếu có lỗi nghiêm trọng */}
+      {stats.criticalAlerts.length > 0 && (
+        <div style={{
+          background: "linear-gradient(135deg,rgba(239,68,68,0.15),rgba(185,28,28,0.1))",
+          border: "2px solid rgba(239,68,68,0.5)",
+          borderRadius: 14, padding: "16px 20px", marginBottom: 20,
+          boxShadow: "0 0 24px rgba(239,68,68,0.15)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 24 }}>💀</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#f87171" }}>
+                CẢNH BÁO NGHIÊM TRỌNG — {stats.criticalAlerts.length} lỗi tuần này
+              </div>
+              <div style={{ fontSize: 12, color: "#fca5a5" }}>Chất lượng SP · Vật thể lạ · Thái độ phục vụ</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {stats.criticalAlerts.map((a, i) => (
+              <div key={a.id || i} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "rgba(239,68,68,0.1)", borderRadius: 8, padding: "8px 12px",
+                flexWrap: "wrap", gap: 6,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>💀</span>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: "#fde8e8" }}>{a.store?.name || a.store?.id}</span>
+                  <span style={{ fontSize: 11, color: "#7a8fa5" }}>{a.store?.regionName}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontSize: 11, padding: "2px 8px", borderRadius: 6,
+                    background: "rgba(239,68,68,0.2)", color: "#fca5a5", fontWeight: 600,
+                  }}>{a.errorType}</span>
+                  <span style={{ fontSize: 11, color: "#7a8fa5" }}>{fmtDate(a.date)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Stat cards — responsive grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16 }}>
         <StatCard icon="📝" label="Feedback tuần này" value={stats.thisWeek.length} sub={`Tuần trước: ${stats.lastWeek.length}`} />
+        <StatCard icon="💀" label="Lỗi nghiêm trọng" value={stats.criticalAlerts.length} color={stats.criticalAlerts.length > 0 ? "#f87171" : "#4ade80"} sub="≥1 là cảnh báo" />
         <StatCard icon="🔴" label="CH cảnh báo đỏ" value={stats.redStores.length} color={stats.redStores.length > 0 ? "#f87171" : "#4ade80"} sub="≥3 lỗi/tuần" />
         <StatCard icon="🟡" label="CH cảnh báo vàng" value={stats.yellowStores.length} color={stats.yellowStores.length > 0 ? "#facc15" : "#4ade80"} sub="2 lỗi/tuần" />
-        <StatCard icon="🏪" label="Tổng cửa hàng" value={ALL_STORES.length} sub="72 cửa hàng" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      {/* 2 cột responsive */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         {/* Red alert stores */}
         <div style={S.card}>
           <div style={S.cardTitle}>🚨 Cửa hàng cảnh báo đỏ tuần này</div>
@@ -490,14 +551,17 @@ function Dashboard({ feedbacks }) {
           ) : (
             stats.topErrors.map(([type, count], i) => {
               const max = stats.topErrors[0][1];
+              const isCritical = CRITICAL_TYPES.includes(type);
               return (
                 <div key={type} style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                    <span style={{ color: "#c0ccd8" }}>{i + 1}. {type}</span>
-                    <span style={{ fontWeight: 700, color: "#38bdf8" }}>{count}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4, alignItems: "center" }}>
+                    <span style={{ color: isCritical ? "#fca5a5" : "#c0ccd8", display: "flex", alignItems: "center", gap: 4 }}>
+                      {isCritical && <span>💀</span>}{i + 1}. {type}
+                    </span>
+                    <span style={{ fontWeight: 700, color: isCritical ? "#f87171" : "#38bdf8" }}>{count}</span>
                   </div>
                   <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${(count / max) * 100}%`, background: "linear-gradient(90deg,#38bdf8,#6366f1)", borderRadius: 4 }} />
+                    <div style={{ height: "100%", width: `${(count / max) * 100}%`, background: isCritical ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#38bdf8,#6366f1)", borderRadius: 4 }} />
                   </div>
                 </div>
               );
@@ -508,7 +572,7 @@ function Dashboard({ feedbacks }) {
 
       {/* Yellow stores */}
       {stats.yellowStores.length > 0 && (
-        <div style={S.card}>
+        <div style={{ ...S.card, marginTop: 16 }}>
           <div style={S.cardTitle}>⚠️ Cửa hàng cảnh báo vàng tuần này</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {stats.yellowStores.map(({ store, count }) => (
