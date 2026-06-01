@@ -632,10 +632,12 @@ function Timeline({ feedbacks, stores }) {
     return m;
   }, [feedbacks]);
 
-  const activeStores = stores.filter(s => s.active !== false);
-  const dynRegions = REGIONS.map(r => ({
-    ...r, stores: activeStores.filter(s => s.region_id === r.id),
-  })).filter(r => r.stores.length > 0);
+  // Nếu stores từ DB chưa load → dùng REGIONS hardcode làm fallback
+  const useDbStores = stores.length > 0;
+  const activeStores = useDbStores ? stores.filter(s => s.active !== false) : ALL_STORES;
+  const dynRegions = useDbStores
+    ? REGIONS.map(r => ({ ...r, stores: activeStores.filter(s => s.region_id === r.id) })).filter(r => r.stores.length > 0)
+    : REGIONS;
   const displayRegions = selectedRegion === "all" ? dynRegions : dynRegions.filter(r => r.id === selectedRegion);
 
   const cellStyle = (count) => {
@@ -846,11 +848,17 @@ function InputFeedback({ feedbacks, stores, onSave, onDelete, user, userRole }) 
             <label style={S.lbl}>Cửa hàng *</label>
             <select style={S.sel} value={form.storeId} onChange={e => setForm({ ...form, storeId: e.target.value })}>
               <option value="">-- Chọn cửa hàng --</option>
-              {REGIONS.map(r => (
-                <optgroup key={r.id} label={r.name}>
-                  {r.stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </optgroup>
-              ))}
+              {REGIONS.map(r => {
+                const rs = stores.length > 0
+                  ? stores.filter(s => s.region_id === r.id && s.active !== false)
+                  : r.stores;
+                if (!rs.length) return null;
+                return (
+                  <optgroup key={r.id} label={r.name}>
+                    {rs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </optgroup>
+                );
+              })}
             </select>
             {errors.storeId && <div style={{ color: "#f87171", fontSize: 11, marginTop: 3 }}>{errors.storeId}</div>}
           </div>
@@ -887,11 +895,17 @@ function InputFeedback({ feedbacks, stores, onSave, onDelete, user, userRole }) 
       <div style={{ ...S.card, padding: "12px 20px", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
         <select style={{ ...S.sel, width: "auto" }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="">Tất cả cửa hàng</option>
-          {REGIONS.map(r => (
-            <optgroup key={r.id} label={r.name}>
-              {r.stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </optgroup>
-          ))}
+          {REGIONS.map(r => {
+            const rs = stores.length > 0
+              ? stores.filter(s => s.region_id === r.id && s.active !== false)
+              : r.stores;
+            if (!rs.length) return null;
+            return (
+              <optgroup key={r.id} label={r.name}>
+                {rs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </optgroup>
+            );
+          })}
         </select>
         <select style={{ ...S.sel, width: "auto" }} value={filterWeek} onChange={e => setFilterWeek(e.target.value)}>
           <option value="all">Tất cả tuần</option>
@@ -1156,6 +1170,13 @@ function StoreManager({ stores, onStoresChanged, user }) {
   return (
     <div style={S.card}>
       <div style={S.cardTitle}>🏪 Quản lý cửa hàng</div>
+
+      {/* Reload button */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+        <button onClick={onStoresChanged} style={{ ...S.btnGhost, fontSize: 11, padding: "4px 10px" }}>
+          🔄 Tải lại
+        </button>
+      </div>
 
       {/* Thêm mới */}
       <div style={{ marginBottom: 20 }}>
