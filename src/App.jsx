@@ -1134,13 +1134,27 @@ function AdminPanel({ user, userRole, stores, onStoresChanged }) {
 /* ═══════════════════════════════════════════════════
    STORE MANAGER
    ═══════════════════════════════════════════════════ */
-function StoreManager({ stores, onStoresChanged, user }) {
+function StoreManager({ onStoresChanged, user }) {
+  const [localStores, setLocalStores] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newRegion, setNewRegion] = useState(REGIONS[0].id);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState("all");
 
-  const filtered = stores.filter(s => {
+  async function refresh() {
+    setLoading(true);
+    try {
+      const data = await loadStores();
+      setLocalStores(data || []);
+    } catch (e) { console.warn("[StoreManager] loadStores:", e); }
+    setLoading(false);
+    try { onStoresChanged(); } catch(e) {}
+  }
+
+  useEffect(() => { refresh(); }, []);
+
+  const filtered = localStores.filter(s => {
     if (filter === "active") return s.active !== false;
     if (filter === "hidden") return s.active === false;
     return true;
@@ -1151,12 +1165,13 @@ function StoreManager({ stores, onStoresChanged, user }) {
     setSaving(true);
     try {
       const base = newName.trim().toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111]/g, "d").replace(/[^a-z0-9]+/g, "_");
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u0111]/g, "d").replace(/[^a-z0-9]+/g, "_");
       const id = base + "_" + Date.now().toString(36);
       await addStore(id, newName.trim(), newRegion);
       await writeLog(user?.email, user?.email, "create", "store", newName.trim(), `region:${newRegion}`);
       setNewName("");
-      onStoresChanged();
+      await refresh();
     } catch (err) { alert("Lỗi: " + err.message); }
     finally { setSaving(false); }
   }
@@ -1164,16 +1179,16 @@ function StoreManager({ stores, onStoresChanged, user }) {
   async function handleToggle(s) {
     await toggleStoreActive(s.id, s.active === false);
     await writeLog(user?.email, user?.email, s.active===false?"show":"hide", "store", s.name, "");
-    onStoresChanged();
+    await refresh();
   }
 
   return (
     <div style={S.card}>
-      <div style={S.cardTitle}>🏪 Quản lý cửa hàng</div>
+      <div style={S.cardTitle}>🏪 Quản lý cửa hàng ({localStores.length})</div>
 
-      {/* Reload button */}
+      {/* Reload */}
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-        <button onClick={onStoresChanged} style={{ ...S.btnGhost, fontSize: 11, padding: "4px 10px" }}>
+        <button onClick={refresh} disabled={loading} style={{ ...S.btnGhost, fontSize: 11, padding: "4px 10px" }}>
           🔄 Tải lại
         </button>
       </div>
@@ -1188,7 +1203,7 @@ function StoreManager({ stores, onStoresChanged, user }) {
           <select style={{ ...S.sel, flex: 1, minWidth: 160 }} value={newRegion} onChange={e => setNewRegion(e.target.value)}>
             {REGIONS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          <button style={{ ...S.btnPrimary, opacity: saving ? 0.7 : 1 }} onClick={handleAdd} disabled={saving}>Thêm</button>
+          <button style={{ ...S.btnPrimary, opacity: saving ? 0.7 : 1 }} onClick={handleAdd} disabled={saving || loading}>Thêm</button>
         </div>
       </div>
 
@@ -1201,14 +1216,15 @@ function StoreManager({ stores, onStoresChanged, user }) {
             background: filter === v ? "rgba(56,189,248,0.2)" : "rgba(255,255,255,0.05)",
             color: filter === v ? "#38bdf8" : "#7a8fa5",
           }}>
-            {l} ({stores.filter(s => v==="all"?true:v==="active"?s.active!==false:s.active===false).length})
+            {l} ({localStores.filter(s => v==="all"?true:v==="active"?s.active!==false:s.active===false).length})
           </button>
         ))}
       </div>
 
       {/* Danh sách */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 400, overflowY: "auto" }}>
-        {filtered.length === 0 && <div style={{ color: "#556677", fontSize: 13 }}>Không có cửa hàng nào.</div>}
+        {loading && <div style={{ color: "#7a8fa5", fontSize: 13 }}>Đang tải danh sách cửa hàng...</div>}
+        {!loading && filtered.length === 0 && <div style={{ color: "#556677", fontSize: 13 }}>Không có cửa hàng nào.</div>}
         {filtered.map(s => {
           const reg = REGIONS.find(r => r.id === s.region_id);
           const isHidden = s.active === false;
@@ -1240,6 +1256,8 @@ function StoreManager({ stores, onStoresChanged, user }) {
     </div>
   );
 }
+
+
 
 /* ═══════════════════════════════════════════════════
    MAIN APP
