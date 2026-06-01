@@ -135,7 +135,7 @@ const CRITICAL_TYPES = [
   "Thái độ/chất lượng phục vụ",
 ];
 
-// Flatten stores map
+// Flatten hardcoded stores map (fallback)
 const STORE_MAP = {};
 const ALL_STORES = [];
 REGIONS.forEach(r => {
@@ -144,6 +144,18 @@ REGIONS.forEach(r => {
     ALL_STORES.push({ ...s, regionId: r.id, regionName: r.name, regionColor: r.color });
   });
 });
+
+// Helper: lấy thông tin region từ region_id
+function getRegionInfo(regionId) {
+  return REGIONS.find(r => r.id === regionId) || { name: regionId, color: "#38bdf8" };
+}
+
+// Helper: enrich store từ DB với regionName/regionColor
+function enrichStore(s) {
+  if (!s) return s;
+  const reg = getRegionInfo(s.region_id);
+  return { ...s, regionName: reg.name, regionColor: reg.color };
+}
 
 /* ═══════════════════════════════════════════════════
    HELPERS
@@ -413,13 +425,12 @@ function Dashboard({ feedbacks, stores }) {
   const thisWeekStart = getWeekStart(vnTodayISO());
 
   const activeStores = stores.filter(s => s.active !== false);
-  const dynamicStoreMap = useMemo(() => {
-    const m = {};
-    stores.forEach(s => { m[s.id] = s; });
-    return m;
-  }, [stores]);
 
   const stats = useMemo(() => {
+    // Build storeMap từ stores prop (enriched với regionName/regionColor)
+    const dynamicStoreMap = {};
+    stores.forEach(s => { dynamicStoreMap[s.id] = enrichStore(s); });
+
     const thisWeek = feedbacks.filter(f => getWeekStart(f.date) === thisWeekStart);
     const lastWeek = feedbacks.filter(f => {
       const ws = getWeekStart(f.date);
@@ -444,7 +455,7 @@ function Dashboard({ feedbacks, stores }) {
     const regionCounts = {};
     thisWeek.forEach(f => {
       const store = dynamicStoreMap[f.storeId];
-      if (store) regionCounts[store.regionId] = (regionCounts[store.regionId] || 0) + 1;
+      if (store) regionCounts[store.region_id] = (regionCounts[store.region_id] || 0) + 1;
     });
 
     // Cửa hàng có lỗi nghiêm trọng tuần này (≥1 lỗi CRITICAL_TYPES)
@@ -457,7 +468,7 @@ function Dashboard({ feedbacks, stores }) {
     });
 
     return { thisWeek, lastWeek, redStores, yellowStores, storeCounts, topErrors, regionCounts, criticalAlerts };
-  }, [feedbacks, thisWeekStart]);
+  }, [feedbacks, thisWeekStart, stores]);
 
   const StatCard = ({ icon, label, value, sub, color }) => (
     <div style={{ ...S.card, flex: 1, minWidth: 160 }}>
