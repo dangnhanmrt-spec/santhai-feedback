@@ -419,100 +419,159 @@ function AccessDenied({ user, authError, onSignOut }) {
    DASHBOARD TAB
    ═══════════════════════════════════════════════════ */
 function Dashboard({ feedbacks, stores }) {
-  const thisWeekStart = getWeekStart(vnTodayISO());
+  const todayWeekStart = getWeekStart(vnTodayISO());
+  const [selectedWeek, setSelectedWeek] = useState(todayWeekStart);
+  const [chartWeeks, setChartWeeks] = useState(6);
 
+  // Tạo danh sách tuần có data để chọn (12 tuần gần nhất)
+  const availableWeeks = useMemo(() => {
+    const weeks = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(todayWeekStart + "T00:00:00");
+      d.setDate(d.getDate() - i * 7);
+      const ws = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      weeks.push(ws);
+    }
+    return weeks;
+  }, [todayWeekStart]);
+
+  const dynamicStoreMap = useMemo(() => {
+    const m = {};
+    stores.forEach(s => { m[s.id] = enrichStore(s); });
+    return m;
+  }, [stores]);
+
+  // Stats cho tuần đang chọn
   const stats = useMemo(() => {
-    const dynamicStoreMap = {};
-    stores.forEach(s => { dynamicStoreMap[s.id] = enrichStore(s); });
-    const thisWeek = feedbacks.filter(f => getWeekStart(f.date) === thisWeekStart);
-    const lastWeek = feedbacks.filter(f => {
-      const ws = getWeekStart(f.date);
-      const d = new Date(thisWeekStart + "T00:00:00");
-      d.setDate(d.getDate() - 7);
-      const lws = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-      return ws === lws;
-    });
+    const selWeek = feedbacks.filter(f => getWeekStart(f.date) === selectedWeek);
+    // Tuần trước tuần đang chọn
+    const d = new Date(selectedWeek + "T00:00:00");
+    d.setDate(d.getDate() - 7);
+    const prevWs = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const prevWeek = feedbacks.filter(f => getWeekStart(f.date) === prevWs);
 
-    // Stores with ≥3 errors this week
     const storeCounts = {};
-    thisWeek.forEach(f => { storeCounts[f.storeId] = (storeCounts[f.storeId] || 0) + 1; });
+    selWeek.forEach(f => { storeCounts[f.storeId] = (storeCounts[f.storeId] || 0) + 1; });
     const redStores = Object.entries(storeCounts).filter(([, c]) => c >= ALERT_RED).map(([id, c]) => ({ store: dynamicStoreMap[id], count: c }));
     const yellowStores = Object.entries(storeCounts).filter(([, c]) => c === ALERT_YELLOW).map(([id, c]) => ({ store: dynamicStoreMap[id], count: c }));
 
-    // Error type breakdown this week
     const errCounts = {};
-    thisWeek.forEach(f => { errCounts[f.errorType] = (errCounts[f.errorType] || 0) + 1; });
+    selWeek.forEach(f => { errCounts[f.errorType] = (errCounts[f.errorType] || 0) + 1; });
     const topErrors = Object.entries(errCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-    // Region breakdown this week
-    const regionCounts = {};
-    thisWeek.forEach(f => {
-      const store = dynamicStoreMap[f.storeId];
-      if (store) regionCounts[store.region_id] = (regionCounts[store.regionId] || 0) + 1;
-    });
-
-    // Cửa hàng có lỗi nghiêm trọng tuần này (≥1 lỗi CRITICAL_TYPES)
     const criticalAlerts = [];
-    thisWeek.forEach(f => {
+    selWeek.forEach(f => {
       if (CRITICAL_TYPES.includes(f.errorType)) {
         const store = dynamicStoreMap[f.storeId];
         criticalAlerts.push({ store, errorType: f.errorType, date: f.date, id: f.id });
       }
     });
 
-    return { thisWeek, lastWeek, redStores, yellowStores, storeCounts, topErrors, regionCounts, criticalAlerts };
-  }, [feedbacks, thisWeekStart, stores]);
+    return { selWeek, prevWeek, redStores, yellowStores, storeCounts, topErrors, criticalAlerts };
+  }, [feedbacks, selectedWeek, dynamicStoreMap]);
+
+  // Dữ liệu biểu đồ xu hướng theo số tuần được chọn
+  const chartData = useMemo(() => {
+    const result = [];
+    for (let i = chartWeeks - 1; i >= 0; i--) {
+      const d = new Date(todayWeekStart + "T00:00:00");
+      d.setDate(d.getDate() - i * 7);
+      const ws = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const wFbs = feedbacks.filter(f => getWeekStart(f.date) === ws);
+      const critical = wFbs.filter(f => CRITICAL_TYPES.includes(f.errorType)).length;
+      const label = "T" + (d.getDate()) + "/" + (d.getMonth() + 1);
+      result.push({ ws, label, total: wFbs.length, critical });
+    }
+    return result;
+  }, [feedbacks, chartWeeks, todayWeekStart]);
+
+  const chartMax = useMemo(() => Math.max(...chartData.map(d => d.total), 1), [chartData]);
 
   const StatCard = ({ icon, label, value, sub, color }) => (
-    <div style={{ ...S.card, flex: 1, minWidth: 160 }}>
-      <div style={{ fontSize: 26, marginBottom: 6 }}>{icon}</div>
+    <div style={{ ...S.card, flex: 1, minWidth: 140 }}>
+      <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
       <div style={{ fontSize: 28, fontWeight: 700, color: color || "#e0e7ef" }}>{value}</div>
       <div style={{ fontSize: 13, color: "#7a8fa5", fontWeight: 500 }}>{label}</div>
       {sub && <div style={{ fontSize: 11, color: "#556677", marginTop: 3 }}>{sub}</div>}
     </div>
   );
 
+  const isCurrentWeek = selectedWeek === todayWeekStart;
+
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: "#e0e7ef", marginBottom: 4 }}>📊 Tổng quan</div>
-        <div style={{ fontSize: 13, color: "#7a8fa5" }}>Tuần hiện tại: {weekLabel(thisWeekStart)}</div>
+      {/* Header + bộ chọn tuần */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#e0e7ef", marginBottom: 2 }}>📊 Tổng quan</div>
+          <div style={{ fontSize: 13, color: "#7a8fa5" }}>{weekLabel(selectedWeek)}{isCurrentWeek ? " (tuần hiện tại)" : ""}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => {
+              const idx = availableWeeks.indexOf(selectedWeek);
+              if (idx < availableWeeks.length - 1) setSelectedWeek(availableWeeks[idx + 1]);
+            }}
+            disabled={availableWeeks.indexOf(selectedWeek) >= availableWeeks.length - 1}
+            style={{ ...S.btnGhost, padding: "5px 10px", fontSize: 16, opacity: availableWeeks.indexOf(selectedWeek) >= availableWeeks.length - 1 ? 0.3 : 1 }}
+          >‹</button>
+          <select
+            value={selectedWeek}
+            onChange={e => setSelectedWeek(e.target.value)}
+            style={{ ...S.sel, fontSize: 13, minWidth: 180 }}
+          >
+            {availableWeeks.map(ws => (
+              <option key={ws} value={ws}>
+                {weekLabel(ws)}{ws === todayWeekStart ? " (hiện tại)" : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              const idx = availableWeeks.indexOf(selectedWeek);
+              if (idx > 0) setSelectedWeek(availableWeeks[idx - 1]);
+            }}
+            disabled={availableWeeks.indexOf(selectedWeek) <= 0}
+            style={{ ...S.btnGhost, padding: "5px 10px", fontSize: 16, opacity: availableWeeks.indexOf(selectedWeek) <= 0 ? 0.3 : 1 }}
+          >›</button>
+          {!isCurrentWeek && (
+            <button onClick={() => setSelectedWeek(todayWeekStart)} style={{ ...S.btnPrimary, fontSize: 12, padding: "5px 12px" }}>
+              Tuần này
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* CRITICAL ALERT BANNER — hiện trên cùng nếu có lỗi nghiêm trọng */}
+      {/* CRITICAL ALERT BANNER */}
       {stats.criticalAlerts.length > 0 && (
         <div style={{
-          background: "linear-gradient(135deg,rgba(239,68,68,0.15),rgba(185,28,28,0.1))",
-          border: "2px solid rgba(239,68,68,0.5)",
-          borderRadius: 14, padding: "16px 20px", marginBottom: 20,
-          boxShadow: "0 0 24px rgba(239,68,68,0.15)",
+          background: "rgba(239,68,68,0.08)",
+          border: "2px solid rgba(239,68,68,0.4)",
+          borderRadius: 14, padding: "16px 20px", marginBottom: 16,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 24 }}>💀</span>
+            <span style={{ fontSize: 22 }}>💀</span>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#f87171" }}>
-                CẢNH BÁO NGHIÊM TRỌNG — {stats.criticalAlerts.length} lỗi tuần này
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#f87171" }}>
+                CẢNH BÁO NGHIÊM TRỌNG — {stats.criticalAlerts.length} lỗi{isCurrentWeek ? " tuần này" : " tuần " + weekLabel(selectedWeek)}
               </div>
               <div style={{ fontSize: 12, color: "#fca5a5" }}>Chất lượng SP · Vật thể lạ · Thái độ phục vụ</div>
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {stats.criticalAlerts.map((a, i) => (
               <div key={a.id || i} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                background: "rgba(239,68,68,0.1)", borderRadius: 8, padding: "8px 12px",
+                background: "rgba(239,68,68,0.08)", borderRadius: 8, padding: "8px 12px",
                 flexWrap: "wrap", gap: 6,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>💀</span>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: "#fde8e8" }}>{a.store?.name || a.store?.id}</span>
+                  <span>💀</span>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: "#fde8e8" }}>{a.store?.name || a.store?.id}</span>
                   <span style={{ fontSize: 11, color: "#7a8fa5" }}>{a.store?.regionName}</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{
-                    fontSize: 11, padding: "2px 8px", borderRadius: 6,
-                    background: "rgba(239,68,68,0.2)", color: "#fca5a5", fontWeight: 600,
-                  }}>{a.errorType}</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "rgba(239,68,68,0.2)", color: "#fca5a5" }}>{a.errorType}</span>
                   <span style={{ fontSize: 11, color: "#7a8fa5" }}>{fmtDate(a.date)}</span>
                 </div>
               </div>
@@ -521,19 +580,85 @@ function Dashboard({ feedbacks, stores }) {
         </div>
       )}
 
-      {/* Stat cards — responsive grid */}
+      {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16 }}>
-        <StatCard icon="📝" label="Feedback tuần này" value={stats.thisWeek.length} sub={`Tuần trước: ${stats.lastWeek.length}`} />
-        <StatCard icon="💀" label="Lỗi nghiêm trọng" value={stats.criticalAlerts.length} color={stats.criticalAlerts.length > 0 ? "#f87171" : "#4ade80"} sub="≥1 là cảnh báo" />
-        <StatCard icon="🔴" label="CH cảnh báo đỏ" value={stats.redStores.length} color={stats.redStores.length > 0 ? "#f87171" : "#4ade80"} sub="≥3 lỗi/tuần" />
-        <StatCard icon="🟡" label="CH cảnh báo vàng" value={stats.yellowStores.length} color={stats.yellowStores.length > 0 ? "#facc15" : "#4ade80"} sub="2 lỗi/tuần" />
+        <StatCard icon="📝" label="Tổng feedback" value={stats.selWeek.length}
+          sub={`Tuần trước: ${stats.prevWeek.length}${stats.prevWeek.length > 0 ? (stats.selWeek.length > stats.prevWeek.length ? " ▲" : stats.selWeek.length < stats.prevWeek.length ? " ▼" : " =") : ""}`} />
+        <StatCard icon="💀" label="Lỗi nghiêm trọng" value={stats.criticalAlerts.length}
+          color={stats.criticalAlerts.length > 0 ? "#f87171" : "#4ade80"} sub="≥1 là cảnh báo" />
+        <StatCard icon="🔴" label="CH cảnh báo đỏ" value={stats.redStores.length}
+          color={stats.redStores.length > 0 ? "#f87171" : "#4ade80"} sub="≥3 lỗi/tuần" />
+        <StatCard icon="🟡" label="CH cảnh báo vàng" value={stats.yellowStores.length}
+          color={stats.yellowStores.length > 0 ? "#facc15" : "#4ade80"} sub="2 lỗi/tuần" />
       </div>
 
-      {/* 2 cột responsive */}
+      {/* Biểu đồ xu hướng */}
+      <div style={{ ...S.card, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+          <div style={S.cardTitle}>📈 Xu hướng lỗi theo tuần</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[4, 6, 8, 12].map(n => (
+              <button key={n} onClick={() => setChartWeeks(n)} style={{
+                padding: "3px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer",
+                border: "none", fontFamily: "inherit",
+                background: chartWeeks === n ? "rgba(56,189,248,0.2)" : "rgba(255,255,255,0.05)",
+                color: chartWeeks === n ? "#38bdf8" : "#7a8fa5",
+              }}>{n} tuần</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chart bars */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 140, padding: "0 4px" }}>
+          {chartData.map((d, i) => {
+            const isSelected = d.ws === selectedWeek;
+            const totalH = chartMax > 0 ? Math.round((d.total / chartMax) * 120) : 0;
+            const critH = d.total > 0 ? Math.round((d.critical / d.total) * totalH) : 0;
+            return (
+              <div
+                key={d.ws}
+                onClick={() => setSelectedWeek(d.ws)}
+                title={`${weekLabel(d.ws)}: ${d.total} lỗi (${d.critical} nghiêm trọng)`}
+                style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer", gap: 4 }}
+              >
+                {d.total > 0 && (
+                  <div style={{ fontSize: 10, color: isSelected ? "#38bdf8" : "#556677", fontWeight: isSelected ? 700 : 400 }}>{d.total}</div>
+                )}
+                <div style={{ width: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", height: 120 }}>
+                  <div style={{ width: "100%", borderRadius: "3px 3px 0 0", overflow: "hidden", minHeight: d.total > 0 ? 4 : 0 }}>
+                    {/* Critical part (red, top) */}
+                    {critH > 0 && <div style={{ height: critH, background: "#ef4444", width: "100%" }} />}
+                    {/* Normal part (blue, bottom) */}
+                    {(totalH - critH) > 0 && <div style={{
+                      height: totalH - critH, width: "100%",
+                      background: isSelected ? "#38bdf8" : "rgba(56,189,248,0.4)",
+                    }} />}
+                    {d.total === 0 && <div style={{ height: 2, background: "rgba(255,255,255,0.06)", width: "100%" }} />}
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: 9, color: isSelected ? "#38bdf8" : "#3a4d60",
+                  fontWeight: isSelected ? 700 : 400, textAlign: "center", lineHeight: 1.2,
+                  borderTop: isSelected ? "2px solid #38bdf8" : "2px solid transparent",
+                  paddingTop: 2, width: "100%",
+                }}>{d.label}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 16, marginTop: 10, fontSize: 11, color: "#556677" }}>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "rgba(56,189,248,0.5)", marginRight: 4, verticalAlign: "middle" }} />Lỗi thông thường</span>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#ef4444", marginRight: 4, verticalAlign: "middle" }} />Lỗi nghiêm trọng</span>
+          <span style={{ color: "#38bdf8" }}>• Click cột để xem chi tiết tuần đó</span>
+        </div>
+      </div>
+
+      {/* 2 cột: red alert + top errors */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-        {/* Red alert stores */}
         <div style={S.card}>
-          <div style={S.cardTitle}>🚨 Cửa hàng cảnh báo đỏ tuần này</div>
+          <div style={S.cardTitle}>🚨 Cửa hàng cảnh báo đỏ</div>
           {stats.redStores.length === 0 ? (
             <div style={{ color: "#4ade80", fontSize: 13 }}>✅ Không có cửa hàng nào bị cảnh báo đỏ</div>
           ) : (
@@ -554,9 +679,8 @@ function Dashboard({ feedbacks, stores }) {
           )}
         </div>
 
-        {/* Top errors */}
         <div style={S.card}>
-          <div style={S.cardTitle}>📋 Lỗi phổ biến nhất tuần này</div>
+          <div style={S.cardTitle}>📋 Lỗi phổ biến nhất</div>
           {stats.topErrors.length === 0 ? (
             <div style={{ color: "#7a8fa5", fontSize: 13 }}>Chưa có dữ liệu</div>
           ) : (
@@ -581,10 +705,9 @@ function Dashboard({ feedbacks, stores }) {
         </div>
       </div>
 
-      {/* Yellow stores */}
       {stats.yellowStores.length > 0 && (
         <div style={{ ...S.card, marginTop: 16 }}>
-          <div style={S.cardTitle}>⚠️ Cửa hàng cảnh báo vàng tuần này</div>
+          <div style={S.cardTitle}>⚠️ Cửa hàng cảnh báo vàng</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {stats.yellowStores.map(({ store, count }) => (
               <div key={store?.id} style={{
@@ -790,7 +913,7 @@ function InputFeedback({ feedbacks, stores, onSave, onDelete, user, userRole }) 
     if (filterWeek !== "all") list = list.filter(f => getWeekStart(f.date) === filterWeek);
     list.sort((a, b) => {
       if (sortBy === "date") return b.date.localeCompare(a.date);
-      if (sortBy === "store") return (STORE_MAP[a.storeId]?.name || "").localeCompare(STORE_MAP[b.storeId]?.name || "");
+      if (sortBy === "store") { const nameA = stores.find(s=>s.id===a.storeId)?.name || STORE_MAP[a.storeId]?.name || a.storeId; const nameB = stores.find(s=>s.id===b.storeId)?.name || STORE_MAP[b.storeId]?.name || b.storeId; return nameA.localeCompare(nameB); }
       return a.errorType.localeCompare(b.errorType);
     });
     return list;
@@ -932,7 +1055,12 @@ function InputFeedback({ feedbacks, stores, onSave, onDelete, user, userRole }) 
           </div>
         ) : (
           filtered.map(fb => {
-            const store = STORE_MAP[fb.storeId];
+            // Tra từ DB stores trước, fallback về STORE_MAP hardcode
+            const dbStore = stores.find(s => s.id === fb.storeId);
+            const reg = dbStore ? REGIONS.find(r => r.id === dbStore.region_id) : null;
+            const store = dbStore
+              ? { name: dbStore.name, regionName: reg?.name || dbStore.region_id, regionColor: reg?.color || "#38bdf8" }
+              : STORE_MAP[fb.storeId];
             const ws = getWeekStart(fb.date);
             const weekFbs = feedbacks.filter(f => f.storeId === fb.storeId && getWeekStart(f.date) === ws);
             const weekCount = weekFbs.length;
