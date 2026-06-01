@@ -146,3 +146,15 @@ export async function toggleStoreActive(id, active) {
   if (error) { console.warn('[toggleStoreActive]', error.message); return false; }
   return true;
 }
+
+export async function loadAuditLog(limit = 30) {
+  try {
+    const { data, error } = await supabase
+      .from('audit_log_feedback')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) { console.warn('[loadAuditLog]', error.message); return []; }
+    return data || [];
+  } catch (err) { console.warn('[loadAuditLog]', err); return []; }
+}
