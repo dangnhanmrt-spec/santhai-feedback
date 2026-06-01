@@ -722,6 +722,114 @@ function Dashboard({ feedbacks, stores }) {
           </div>
         </div>
       )}
+
+      {/* Bảng chi tiết cửa hàng mắc lỗi trong tuần */}
+      <StoreErrorList feedbacks={stats.selWeek} storeMap={dynamicStoreMap} weekLabel={weekLabel(selectedWeek)} />
+    </div>
+  );
+}
+
+/* ───────────────────────────────────────────────────
+   STORE ERROR LIST — collapsible per store
+   ─────────────────────────────────────────────────── */
+function StoreErrorList({ feedbacks, storeMap, weekLabel }) {
+  const [openStore, setOpenStore] = useState(null);
+
+  const byStore = useMemo(() => {
+    const map = {};
+    feedbacks.forEach(f => {
+      if (!map[f.storeId]) map[f.storeId] = { fbs: [] };
+      map[f.storeId].fbs.push(f);
+    });
+    return Object.entries(map)
+      .map(([id, { fbs }]) => ({
+        id,
+        store: storeMap[id] || { name: id, regionName: "", regionColor: "#38bdf8" },
+        fbs: fbs.sort((a, b) => b.date.localeCompare(a.date)),
+        count: fbs.length,
+        hasCritical: fbs.some(f => CRITICAL_TYPES.includes(f.errorType)),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [feedbacks, storeMap]);
+
+  if (byStore.length === 0) return null;
+
+  return (
+    <div style={{ ...S.card, marginTop: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div style={S.cardTitle}>🏪 Danh sách cửa hàng mắc lỗi — {weekLabel}</div>
+        <div style={{ fontSize: 12, color: "#556677" }}>{byStore.length} cửa hàng · {feedbacks.length} lỗi</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {byStore.map(({ id, store, fbs, count, hasCritical }) => {
+          const isOpen = openStore === id;
+          const alertLvl = alertLevel(count);
+          const borderColor = hasCritical ? "#ef4444" : alertLvl === "red" ? "#ef4444" : alertLvl === "yellow" ? "#eab308" : "#38bdf8";
+          return (
+            <div key={id} style={{
+              border: `1px solid ${hasCritical ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.07)"}`,
+              borderRadius: 10, overflow: "hidden",
+              borderLeft: `4px solid ${borderColor}`,
+            }}>
+              {/* Header — click to toggle */}
+              <div
+                onClick={() => setOpenStore(isOpen ? null : id)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "10px 14px", cursor: "pointer",
+                  background: isOpen ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
+                  userSelect: "none",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  {hasCritical && <span style={{ fontSize: 14 }}>💀</span>}
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: "#dde6f0" }}>{store.name}</span>
+                    {store.regionName && (
+                      <span style={{
+                        marginLeft: 8, fontSize: 11, padding: "1px 7px", borderRadius: 8,
+                        background: `${store.regionColor || "#38bdf8"}20`,
+                        color: store.regionColor || "#38bdf8",
+                      }}>{store.regionName}</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <AlertBadge count={count} />
+                  <span style={{ fontSize: 12, color: "#556677", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                </div>
+              </div>
+
+              {/* Detail rows */}
+              {isOpen && (
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  {fbs.map((f, i) => {
+                    const isCrit = CRITICAL_TYPES.includes(f.errorType);
+                    return (
+                      <div key={f.id || i} style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto auto",
+                        gap: 8, alignItems: "center",
+                        padding: "9px 14px 9px 20px",
+                        borderBottom: i < fbs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                        background: isCrit ? "rgba(239,68,68,0.04)" : "transparent",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {isCrit && <span style={{ fontSize: 12 }}>💀</span>}
+                          <span style={{ fontSize: 13, color: isCrit ? "#fca5a5" : "#c0ccd8" }}>{f.errorType}</span>
+                          {f.note && <span style={{ fontSize: 11, color: "#556677" }}>— {f.note}</span>}
+                        </div>
+                        <span style={{ fontSize: 11, color: "#556677", whiteSpace: "nowrap" }}>📅 {fmtDate(f.date)}</span>
+                        <span style={{ fontSize: 11, color: "#3a4d60", whiteSpace: "nowrap" }}>👤 {f.submittedBy?.split("@")[0]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
