@@ -409,8 +409,15 @@ function AccessDenied({ user, authError, onSignOut }) {
 /* ═══════════════════════════════════════════════════
    DASHBOARD TAB
    ═══════════════════════════════════════════════════ */
-function Dashboard({ feedbacks }) {
+function Dashboard({ feedbacks, stores }) {
   const thisWeekStart = getWeekStart(vnTodayISO());
+
+  const activeStores = stores.filter(s => s.active !== false);
+  const dynamicStoreMap = useMemo(() => {
+    const m = {};
+    stores.forEach(s => { m[s.id] = s; });
+    return m;
+  }, [stores]);
 
   const stats = useMemo(() => {
     const thisWeek = feedbacks.filter(f => getWeekStart(f.date) === thisWeekStart);
@@ -425,8 +432,8 @@ function Dashboard({ feedbacks }) {
     // Stores with ≥3 errors this week
     const storeCounts = {};
     thisWeek.forEach(f => { storeCounts[f.storeId] = (storeCounts[f.storeId] || 0) + 1; });
-    const redStores = Object.entries(storeCounts).filter(([, c]) => c >= ALERT_RED).map(([id, c]) => ({ store: STORE_MAP[id], count: c }));
-    const yellowStores = Object.entries(storeCounts).filter(([, c]) => c === ALERT_YELLOW).map(([id, c]) => ({ store: STORE_MAP[id], count: c }));
+    const redStores = Object.entries(storeCounts).filter(([, c]) => c >= ALERT_RED).map(([id, c]) => ({ store: dynamicStoreMap[id], count: c }));
+    const yellowStores = Object.entries(storeCounts).filter(([, c]) => c === ALERT_YELLOW).map(([id, c]) => ({ store: dynamicStoreMap[id], count: c }));
 
     // Error type breakdown this week
     const errCounts = {};
@@ -436,7 +443,7 @@ function Dashboard({ feedbacks }) {
     // Region breakdown this week
     const regionCounts = {};
     thisWeek.forEach(f => {
-      const store = STORE_MAP[f.storeId];
+      const store = dynamicStoreMap[f.storeId];
       if (store) regionCounts[store.regionId] = (regionCounts[store.regionId] || 0) + 1;
     });
 
@@ -444,7 +451,7 @@ function Dashboard({ feedbacks }) {
     const criticalAlerts = [];
     thisWeek.forEach(f => {
       if (CRITICAL_TYPES.includes(f.errorType)) {
-        const store = STORE_MAP[f.storeId];
+        const store = dynamicStoreMap[f.storeId];
         criticalAlerts.push({ store, errorType: f.errorType, date: f.date, id: f.id });
       }
     });
@@ -595,7 +602,7 @@ function Dashboard({ feedbacks }) {
 /* ═══════════════════════════════════════════════════
    TIMELINE TAB — Matrix hàng=CH, cột=tuần
    ═══════════════════════════════════════════════════ */
-function Timeline({ feedbacks }) {
+function Timeline({ feedbacks, stores }) {
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [numWeeks, setNumWeeks] = useState(6);
 
@@ -622,7 +629,11 @@ function Timeline({ feedbacks }) {
     return m;
   }, [feedbacks]);
 
-  const displayRegions = selectedRegion === "all" ? REGIONS : REGIONS.filter(r => r.id === selectedRegion);
+  const activeStores = stores.filter(s => s.active !== false);
+  const dynamicRegions = REGIONS.map(r => ({
+    ...r, stores: activeStores.filter(s => s.region_id === r.id),
+  })).filter(r => r.stores.length > 0);
+  const displayRegions = selectedRegion === "all" ? dynamicRegions : dynamicRegions.filter(r => r.id === selectedRegion);
 
   const cellStyle = (count) => {
     const level = alertLevel(count);
@@ -640,7 +651,7 @@ function Timeline({ feedbacks }) {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <select style={{ ...S.sel, width: "auto" }} value={selectedRegion} onChange={e => setSelectedRegion(e.target.value)}>
             <option value="all">Tất cả khu vực</option>
-            {REGIONS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            {dynamicRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
           <select style={{ ...S.sel, width: "auto" }} value={numWeeks} onChange={e => setNumWeeks(Number(e.target.value))}>
             <option value={4}>4 tuần</option>
@@ -749,7 +760,7 @@ function Timeline({ feedbacks }) {
 /* ═══════════════════════════════════════════════════
    INPUT TAB
    ═══════════════════════════════════════════════════ */
-function InputFeedback({ feedbacks, onSave, onDelete, user, userRole }) {
+function InputFeedback({ feedbacks, stores, onSave, onDelete, user, userRole }) {
   const emptyForm = { storeId: "", errorType: "", date: vnTodayISO(), note: "" };
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -977,7 +988,7 @@ function InputFeedback({ feedbacks, onSave, onDelete, user, userRole }) {
 /* ═══════════════════════════════════════════════════
    ADMIN TAB
    ═══════════════════════════════════════════════════ */
-function AdminPanel({ user, userRole }) {
+function AdminPanel({ user, userRole, stores, onStoresChanged }) {
   const [emails, setEmails] = useState([]);
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("viewer");
@@ -1130,6 +1141,119 @@ create table audit_log (
   created_at timestamptz default now()
 );`}</pre>
       </div>
+      {/* Store Manager — chỉ Super Admin */}
+      {isSuperAdmin && (
+        <StoreManager stores={stores} onStoresChanged={onStoresChanged} user={user} />
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   STORE MANAGER — Super Admin only
+   ═══════════════════════════════════════════════════ */
+function StoreManager({ stores, onStoresChanged, user }) {
+  const [newName, setNewName] = useState("");
+  const [newRegion, setNewRegion] = useState(REGIONS[0].id);
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState("all"); // all | active | hidden
+
+  const filtered = stores.filter(s => {
+    if (filter === "active") return s.active !== false;
+    if (filter === "hidden") return s.active === false;
+    return true;
+  });
+
+  async function handleAdd() {
+    if (!newName.trim()) return;
+    setSaving(true);
+    try {
+      const id = newName.trim().toLowerCase()
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/đ/g, "d").replace(/[^a-z0-9]/g, "_")
+        + "_" + Date.now().toString(36);
+      await addStore(id, newName.trim(), newRegion);
+      await writeLog(user?.email, user?.email, "create", "store", newName.trim(), `region: ${newRegion}`);
+      setNewName("");
+      onStoresChanged();
+    } catch (err) {
+      alert("Lỗi: " + err.message);
+    } finally { setSaving(false); }
+  }
+
+  async function handleToggle(store) {
+    await toggleStoreActive(store.id, !store.active);
+    await writeLog(user?.email, user?.email, store.active ? "hide" : "show", "store", store.name, "");
+    onStoresChanged();
+  }
+
+  const regionName = (id) => REGIONS.find(r => r.id === id)?.name || id;
+
+  return (
+    <div style={S.card}>
+      <div style={S.cardTitle}>🏪 Quản lý cửa hàng</div>
+
+      {/* Thêm cửa hàng mới */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#7a8fa5", marginBottom: 8 }}>Thêm cửa hàng mới</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input
+            style={{ ...S.inp, flex: 2, minWidth: 180 }}
+            placeholder="Tên cửa hàng..."
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleAdd()}
+          />
+          <select style={{ ...S.sel, flex: 1, minWidth: 160 }} value={newRegion} onChange={e => setNewRegion(e.target.value)}>
+            {REGIONS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+          <button style={{ ...S.btnPrimary, opacity: saving ? 0.7 : 1 }} onClick={handleAdd} disabled={saving}>
+            Thêm
+          </button>
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        {[["all","Tất cả"],["active","Đang hoạt động"],["hidden","Đã ẩn"]].map(([v,l]) => (
+          <button key={v} onClick={() => setFilter(v)} style={{
+            padding: "4px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", border: "none",
+            background: filter === v ? "rgba(56,189,248,0.2)" : "rgba(255,255,255,0.05)",
+            color: filter === v ? "#38bdf8" : "#7a8fa5", fontFamily: "inherit",
+          }}>{l} ({stores.filter(s => v==="all" ? true : v==="active" ? s.active!==false : s.active===false).length})</button>
+        ))}
+      </div>
+
+      {/* Danh sách cửa hàng */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 400, overflowY: "auto" }}>
+        {filtered.length === 0 && <div style={{ color: "#556677", fontSize: 13 }}>Không có cửa hàng nào.</div>}
+        {filtered.map(s => (
+          <div key={s.id} style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "8px 12px", borderRadius: 8, flexWrap: "wrap", gap: 6,
+            background: s.active === false ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.04)",
+            border: s.active === false ? "1px solid rgba(255,255,255,0.04)" : "1px solid rgba(255,255,255,0.08)",
+            opacity: s.active === false ? 0.6 : 1,
+          }}>
+            <div>
+              <span style={{ fontSize: 13, color: s.active === false ? "#556677" : "#dde6f0" }}>{s.name}</span>
+              <span style={{ fontSize: 11, color: "#3a4d60", marginLeft: 8 }}>{regionName(s.region_id)}</span>
+              {s.active === false && <span style={{ fontSize: 10, color: "#ef4444", marginLeft: 6 }}>● Ẩn</span>}
+            </div>
+            <button
+              onClick={() => handleToggle(s)}
+              style={{
+                padding: "4px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer",
+                border: "none", fontFamily: "inherit",
+                background: s.active === false ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+                color: s.active === false ? "#4ade80" : "#f87171",
+              }}
+            >
+              {s.active === false ? "Hiện lại" : "Ẩn"}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1141,6 +1265,7 @@ export default function App() {
   const [user, setUser] = useState(undefined); // undefined=loading, null=not logged in
   const [userRole, setUserRole] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
+  const [stores, setStores] = useState([]);
   const [tab, setTab] = useState("dashboard");
   const [dbStatus, setDbStatus] = useState("local");
 
@@ -1201,11 +1326,12 @@ export default function App() {
     };
   }, []);
 
-  // Load feedbacks
+  // Load feedbacks + stores
   useEffect(() => {
     if (!user || !userRole) return;
-    loadFeedbacks().then(list => {
-      setFeedbacks(list);
+    Promise.all([loadFeedbacks(), loadStores()]).then(([fbs, sts]) => {
+      setFeedbacks(fbs);
+      setStores(sts);
       setDbStatus("supabase");
     });
   }, [user, userRole]);
@@ -1214,7 +1340,7 @@ export default function App() {
     const result = await saveFeedback(fb);
     if (result) setDbStatus("supabase");
     await writeLog(user?.email, user?.displayName || user?.email, fb.id ? "update" : "create", "feedback",
-      STORE_MAP[fb.storeId]?.name || fb.storeId, `${fb.errorType} | ${fb.date}`);
+      fb.storeId, `${fb.errorType} | ${fb.date}`);
     const list = await loadFeedbacks();
     setFeedbacks(list);
   }, [user]);
@@ -1274,18 +1400,19 @@ export default function App() {
       </header>
 
       <div style={S.content}>
-        {tab === "dashboard" && <Dashboard feedbacks={feedbacks} />}
-        {tab === "timeline" && <Timeline feedbacks={feedbacks} />}
+        {tab === "dashboard" && <Dashboard feedbacks={feedbacks} stores={stores} />}
+        {tab === "timeline" && <Timeline feedbacks={feedbacks} stores={stores} />}
         {tab === "input" && (
           <InputFeedback
             feedbacks={feedbacks}
+            stores={stores}
             onSave={handleSave}
             onDelete={handleDelete}
             user={user}
             userRole={userRole}
           />
         )}
-        {tab === "admin" && userRole === "admin" && <AdminPanel user={user} userRole={userRole} />}
+        {tab === "admin" && userRole === "admin" && <AdminPanel user={user} userRole={userRole} stores={stores} onStoresChanged={() => loadStores().then(setStores)} />}
 
         <div style={{
           textAlign: "center", marginTop: 40, paddingTop: 16,
