@@ -120,3 +120,29 @@ export async function writeLog(userEmail, userName, action, targetType, targetNa
     });
   } catch (err) { /* silent */ }
 }
+
+export async function loadStores() {
+  try {
+    const { data, error } = await supabase
+      .from('stores').select('*').order('region_id').order('name');
+    if (error) { console.warn('[loadStores]', error.message); return []; }
+    return data || [];
+  } catch (err) { console.warn('[loadStores]', err); return []; }
+}
+
+export async function addStore(id, name, regionId) {
+  const { error } = await supabase.from('stores').insert({
+    id: id.toLowerCase().trim().replace(/\s+/g, '_'),
+    name: name.trim(),
+    region_id: regionId,
+    active: true,
+  });
+  if (error) { console.warn('[addStore]', error.message); throw new Error(error.message); }
+  return true;
+}
+
+export async function toggleStoreActive(id, active) {
+  const { error } = await supabase.from('stores').update({ active }).eq('id', id);
+  if (error) { console.warn('[toggleStoreActive]', error.message); return false; }
+  return true;
+}
