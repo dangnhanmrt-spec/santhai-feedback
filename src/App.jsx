@@ -1125,7 +1125,6 @@ function AdminPanel({ user, userRole, stores, onStoresChanged }) {
       </div>
 
       {/* Store Manager — chỉ Super Admin */}
-      <AuditLog />
       <StoreManager onStoresChanged={onStoresChanged} user={user} />
     </div>
   );
@@ -1465,6 +1464,7 @@ export default function App() {
     { id: "dashboard", label: "📊 Dashboard" },
     { id: "timeline", label: "📅 Timeline" },
     { id: "input", label: "➕ Nhập feedback" },
+    ...(userRole === "admin" ? [{ id: "history", label: "📋 Lịch sử" }] : []),
     ...(userRole === "admin" ? [{ id: "admin", label: "⚙️ Quản lý" }] : []),
   ];
 
@@ -1504,6 +1504,7 @@ export default function App() {
             userRole={userRole}
           />
         )}
+        {tab === "history" && userRole === "admin" && <AuditLog />}
         {tab === "admin" && userRole === "admin" && <AdminPanel user={user} userRole={userRole} stores={stores} onStoresChanged={() => loadStores().then(setStores)} />}
 
         <div style={{
