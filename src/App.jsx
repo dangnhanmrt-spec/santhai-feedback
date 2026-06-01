@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   loadFeedbacks, saveFeedback, deleteFeedback,
   loadAllowedEmails, saveAllowedEmail, deleteAllowedEmail,
+  loadStores, addStore, toggleStoreActive,
   signInWithGoogle, signOut, getSession, onAuthChange, checkEmailAccess, writeLog,
 } from "./supabase.js";
 
@@ -135,7 +136,7 @@ const CRITICAL_TYPES = [
   "Thái độ/chất lượng phục vụ",
 ];
 
-// Flatten hardcoded stores map (fallback)
+// Flatten stores map
 const STORE_MAP = {};
 const ALL_STORES = [];
 REGIONS.forEach(r => {
@@ -145,15 +146,10 @@ REGIONS.forEach(r => {
   });
 });
 
-// Helper: lấy thông tin region từ region_id
-function getRegionInfo(regionId) {
-  return REGIONS.find(r => r.id === regionId) || { name: regionId, color: "#38bdf8" };
-}
-
-// Helper: enrich store từ DB với regionName/regionColor
+// Enrich store từ DB với thông tin region
 function enrichStore(s) {
   if (!s) return s;
-  const reg = getRegionInfo(s.region_id);
+  const reg = REGIONS.find(r => r.id === s.region_id) || { name: s.region_id, color: "#38bdf8" };
   return { ...s, regionName: reg.name, regionColor: reg.color };
 }
 
@@ -424,13 +420,9 @@ function AccessDenied({ user, authError, onSignOut }) {
 function Dashboard({ feedbacks, stores }) {
   const thisWeekStart = getWeekStart(vnTodayISO());
 
-  const activeStores = stores.filter(s => s.active !== false);
-
   const stats = useMemo(() => {
-    // Build storeMap từ stores prop (enriched với regionName/regionColor)
     const dynamicStoreMap = {};
     stores.forEach(s => { dynamicStoreMap[s.id] = enrichStore(s); });
-
     const thisWeek = feedbacks.filter(f => getWeekStart(f.date) === thisWeekStart);
     const lastWeek = feedbacks.filter(f => {
       const ws = getWeekStart(f.date);
@@ -455,7 +447,7 @@ function Dashboard({ feedbacks, stores }) {
     const regionCounts = {};
     thisWeek.forEach(f => {
       const store = dynamicStoreMap[f.storeId];
-      if (store) regionCounts[store.region_id] = (regionCounts[store.region_id] || 0) + 1;
+      if (store) regionCounts[store.region_id] = (regionCounts[store.regionId] || 0) + 1;
     });
 
     // Cửa hàng có lỗi nghiêm trọng tuần này (≥1 lỗi CRITICAL_TYPES)
@@ -641,10 +633,10 @@ function Timeline({ feedbacks, stores }) {
   }, [feedbacks]);
 
   const activeStores = stores.filter(s => s.active !== false);
-  const dynamicRegions = REGIONS.map(r => ({
+  const dynRegions = REGIONS.map(r => ({
     ...r, stores: activeStores.filter(s => s.region_id === r.id),
   })).filter(r => r.stores.length > 0);
-  const displayRegions = selectedRegion === "all" ? dynamicRegions : dynamicRegions.filter(r => r.id === selectedRegion);
+  const displayRegions = selectedRegion === "all" ? dynRegions : dynRegions.filter(r => r.id === selectedRegion);
 
   const cellStyle = (count) => {
     const level = alertLevel(count);
@@ -662,7 +654,7 @@ function Timeline({ feedbacks, stores }) {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <select style={{ ...S.sel, width: "auto" }} value={selectedRegion} onChange={e => setSelectedRegion(e.target.value)}>
             <option value="all">Tất cả khu vực</option>
-            {dynamicRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            {dynRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
           <select style={{ ...S.sel, width: "auto" }} value={numWeeks} onChange={e => setNumWeeks(Number(e.target.value))}>
             <option value={4}>4 tuần</option>
@@ -1161,13 +1153,13 @@ create table audit_log (
 }
 
 /* ═══════════════════════════════════════════════════
-   STORE MANAGER — Super Admin only
+   STORE MANAGER
    ═══════════════════════════════════════════════════ */
 function StoreManager({ stores, onStoresChanged, user }) {
   const [newName, setNewName] = useState("");
   const [newRegion, setNewRegion] = useState(REGIONS[0].id);
   const [saving, setSaving] = useState(false);
-  const [filter, setFilter] = useState("all"); // all | active | hidden
+  const [filter, setFilter] = useState("all");
 
   const filtered = stores.filter(s => {
     if (filter === "active") return s.active !== false;
@@ -1179,91 +1171,85 @@ function StoreManager({ stores, onStoresChanged, user }) {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      const id = newName.trim().toLowerCase()
-        .normalize("NFD").replace(/[̀-ͯ]/g, "")
-        .replace(/đ/g, "d").replace(/[^a-z0-9]/g, "_")
-        + "_" + Date.now().toString(36);
+      const base = newName.trim().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111]/g, "d").replace(/[^a-z0-9]+/g, "_");
+      const id = base + "_" + Date.now().toString(36);
       await addStore(id, newName.trim(), newRegion);
-      await writeLog(user?.email, user?.email, "create", "store", newName.trim(), `region: ${newRegion}`);
+      await writeLog(user?.email, user?.email, "create", "store", newName.trim(), `region:${newRegion}`);
       setNewName("");
       onStoresChanged();
-    } catch (err) {
-      alert("Lỗi: " + err.message);
-    } finally { setSaving(false); }
+    } catch (err) { alert("Lỗi: " + err.message); }
+    finally { setSaving(false); }
   }
 
-  async function handleToggle(store) {
-    await toggleStoreActive(store.id, !store.active);
-    await writeLog(user?.email, user?.email, store.active ? "hide" : "show", "store", store.name, "");
+  async function handleToggle(s) {
+    await toggleStoreActive(s.id, s.active === false);
+    await writeLog(user?.email, user?.email, s.active===false?"show":"hide", "store", s.name, "");
     onStoresChanged();
   }
-
-  const regionName = (id) => REGIONS.find(r => r.id === id)?.name || id;
 
   return (
     <div style={S.card}>
       <div style={S.cardTitle}>🏪 Quản lý cửa hàng</div>
 
-      {/* Thêm cửa hàng mới */}
+      {/* Thêm mới */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#7a8fa5", marginBottom: 8 }}>Thêm cửa hàng mới</div>
+        <div style={{ fontSize: 13, color: "#7a8fa5", marginBottom: 8 }}>Thêm cửa hàng mới</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input
-            style={{ ...S.inp, flex: 2, minWidth: 180 }}
-            placeholder="Tên cửa hàng..."
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleAdd()}
-          />
+          <input style={{ ...S.inp, flex: 2, minWidth: 180 }} placeholder="Tên cửa hàng..."
+            value={newName} onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleAdd()} />
           <select style={{ ...S.sel, flex: 1, minWidth: 160 }} value={newRegion} onChange={e => setNewRegion(e.target.value)}>
             {REGIONS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          <button style={{ ...S.btnPrimary, opacity: saving ? 0.7 : 1 }} onClick={handleAdd} disabled={saving}>
-            Thêm
-          </button>
+          <button style={{ ...S.btnPrimary, opacity: saving ? 0.7 : 1 }} onClick={handleAdd} disabled={saving}>Thêm</button>
         </div>
       </div>
 
-      {/* Filter */}
+      {/* Filter tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {[["all","Tất cả"],["active","Đang hoạt động"],["hidden","Đã ẩn"]].map(([v,l]) => (
+        {[["all","Tất cả"],["active","Đang hoạt động"],["hidden","Đã ẩn"]].map(([v, l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
-            padding: "4px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer", border: "none",
+            padding: "4px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
+            border: "none", fontFamily: "inherit",
             background: filter === v ? "rgba(56,189,248,0.2)" : "rgba(255,255,255,0.05)",
-            color: filter === v ? "#38bdf8" : "#7a8fa5", fontFamily: "inherit",
-          }}>{l} ({stores.filter(s => v==="all" ? true : v==="active" ? s.active!==false : s.active===false).length})</button>
+            color: filter === v ? "#38bdf8" : "#7a8fa5",
+          }}>
+            {l} ({stores.filter(s => v==="all"?true:v==="active"?s.active!==false:s.active===false).length})
+          </button>
         ))}
       </div>
 
-      {/* Danh sách cửa hàng */}
+      {/* Danh sách */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 400, overflowY: "auto" }}>
         {filtered.length === 0 && <div style={{ color: "#556677", fontSize: 13 }}>Không có cửa hàng nào.</div>}
-        {filtered.map(s => (
-          <div key={s.id} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "8px 12px", borderRadius: 8, flexWrap: "wrap", gap: 6,
-            background: s.active === false ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.04)",
-            border: s.active === false ? "1px solid rgba(255,255,255,0.04)" : "1px solid rgba(255,255,255,0.08)",
-            opacity: s.active === false ? 0.6 : 1,
-          }}>
-            <div>
-              <span style={{ fontSize: 13, color: s.active === false ? "#556677" : "#dde6f0" }}>{s.name}</span>
-              <span style={{ fontSize: 11, color: "#3a4d60", marginLeft: 8 }}>{regionName(s.region_id)}</span>
-              {s.active === false && <span style={{ fontSize: 10, color: "#ef4444", marginLeft: 6 }}>● Ẩn</span>}
-            </div>
-            <button
-              onClick={() => handleToggle(s)}
-              style={{
+        {filtered.map(s => {
+          const reg = REGIONS.find(r => r.id === s.region_id);
+          const isHidden = s.active === false;
+          return (
+            <div key={s.id} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "8px 12px", borderRadius: 8, flexWrap: "wrap", gap: 6,
+              background: isHidden ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.04)",
+              border: isHidden ? "1px solid rgba(255,255,255,0.04)" : "1px solid rgba(255,255,255,0.08)",
+              opacity: isHidden ? 0.6 : 1,
+            }}>
+              <div>
+                <span style={{ fontSize: 13, color: isHidden ? "#556677" : "#dde6f0" }}>{s.name}</span>
+                <span style={{ fontSize: 11, color: "#3a4d60", marginLeft: 8 }}>{reg?.name || s.region_id}</span>
+                {isHidden && <span style={{ fontSize: 10, color: "#ef4444", marginLeft: 6 }}>● Ẩn</span>}
+              </div>
+              <button onClick={() => handleToggle(s)} style={{
                 padding: "4px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer",
                 border: "none", fontFamily: "inherit",
-                background: s.active === false ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-                color: s.active === false ? "#4ade80" : "#f87171",
-              }}
-            >
-              {s.active === false ? "Hiện lại" : "Ẩn"}
-            </button>
-          </div>
-        ))}
+                background: isHidden ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+                color: isHidden ? "#4ade80" : "#f87171",
+              }}>
+                {isHidden ? "Hiện lại" : "Ẩn"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1351,7 +1337,7 @@ export default function App() {
     const result = await saveFeedback(fb);
     if (result) setDbStatus("supabase");
     await writeLog(user?.email, user?.displayName || user?.email, fb.id ? "update" : "create", "feedback",
-      fb.storeId, `${fb.errorType} | ${fb.date}`);
+      STORE_MAP[fb.storeId]?.name || fb.storeId, `${fb.errorType} | ${fb.date}`);
     const list = await loadFeedbacks();
     setFeedbacks(list);
   }, [user]);
