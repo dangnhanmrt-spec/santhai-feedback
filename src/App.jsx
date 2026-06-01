@@ -3,6 +3,7 @@ import {
   loadFeedbacks, saveFeedback, deleteFeedback,
   loadAllowedEmails, saveAllowedEmail, deleteAllowedEmail,
   loadStores, addStore, toggleStoreActive,
+  loadAuditLog,
   signInWithGoogle, signOut, getSession, onAuthChange, checkEmailAccess, writeLog,
 } from "./supabase.js";
 
@@ -1124,8 +1125,98 @@ function AdminPanel({ user, userRole, stores, onStoresChanged }) {
       </div>
 
       {/* Store Manager — chỉ Super Admin */}
-      {isSuperAdmin && (
-        <StoreManager stores={stores} onStoresChanged={onStoresChanged} user={user} />
+      <AuditLog />
+      <StoreManager onStoresChanged={onStoresChanged} user={user} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   AUDIT LOG
+   ═══════════════════════════════════════════════════ */
+function AuditLog() {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [limit, setLimit] = useState(30);
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const data = await loadAuditLog(limit);
+      setLogs(data || []);
+    } catch(e) { console.warn("[AuditLog]", e); }
+    setLoading(false);
+  }
+
+  useEffect(() => { refresh(); }, [limit]);
+
+  const actionLabel = (action) => ({
+    create: { label: "Thêm", color: "#4ade80" },
+    update: { label: "Sửa", color: "#38bdf8" },
+    delete: { label: "Xóa", color: "#f87171" },
+    hide:   { label: "Ẩn",  color: "#facc15" },
+    show:   { label: "Hiện", color: "#a78bfa" },
+  }[action] || { label: action, color: "#7a8fa5" });
+
+  function fmtTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  }
+
+  return (
+    <div style={S.card}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div style={S.cardTitle}>📋 Lịch sử thao tác</div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select style={{ ...S.sel, width: "auto", fontSize: 12 }} value={limit} onChange={e => setLimit(Number(e.target.value))}>
+            <option value={30}>30 gần nhất</option>
+            <option value={50}>50 gần nhất</option>
+            <option value={100}>100 gần nhất</option>
+          </select>
+          <button onClick={refresh} disabled={loading} style={{ ...S.btnGhost, fontSize: 11, padding: "4px 10px" }}>
+            🔄 Tải lại
+          </button>
+        </div>
+      </div>
+
+      {loading && <div style={{ color: "#7a8fa5", fontSize: 13 }}>Đang tải...</div>}
+      {!loading && logs.length === 0 && <div style={{ color: "#556677", fontSize: 13 }}>Chưa có lịch sử thao tác.</div>}
+
+      {!loading && logs.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+          {logs.map(log => {
+            const act = actionLabel(log.action);
+            return (
+              <div key={log.id} style={{
+                display: "grid",
+                gridTemplateColumns: "60px 1fr 1fr 90px",
+                gap: 8, alignItems: "center",
+                padding: "8px 12px", borderRadius: 8,
+                background: "rgba(255,255,255,0.025)",
+                border: "1px solid rgba(255,255,255,0.05)",
+                fontSize: 12,
+              }}>
+                <span style={{
+                  padding: "2px 8px", borderRadius: 6, textAlign: "center",
+                  background: `${act.color}20`, color: act.color, fontWeight: 600, fontSize: 11,
+                }}>
+                  {act.label}
+                </span>
+                <div style={{ overflow: "hidden" }}>
+                  <div style={{ color: "#dde6f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {log.target_name || "—"}
+                  </div>
+                  <div style={{ color: "#556677", fontSize: 10 }}>{log.detail || ""}</div>
+                </div>
+                <div style={{ color: "#7a8fa5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {log.user_email}
+                </div>
+                <div style={{ color: "#3a4d60", textAlign: "right" }}>{fmtTime(log.created_at)}</div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
