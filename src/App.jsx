@@ -1109,41 +1109,6 @@ function AdminPanel({ user, userRole, stores, onStoresChanged }) {
         )}
       </div>
 
-      {/* SQL Schema hint */}
-      <div style={{ ...S.card, borderColor: "rgba(99,102,241,0.2)" }}>
-        <div style={S.cardTitle}>🗄️ Supabase SQL Schema</div>
-        <pre style={{
-          background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "14px 16px",
-          fontSize: 11, color: "#94a3b8", overflowX: "auto", lineHeight: 1.6,
-        }}>{`-- Chạy trong Supabase SQL Editor:
-
-create table allowed_emails (
-  email text primary key,
-  role text not null default 'viewer',
-  created_at timestamptz default now()
-);
-
-create table feedbacks (
-  id text primary key,
-  store_id text not null,
-  error_type text not null,
-  feedback_date date not null,
-  note text default '',
-  submitted_by text default '',
-  created_at timestamptz default now()
-);
-
-create table audit_log (
-  id bigserial primary key,
-  user_email text,
-  user_name text,
-  action text,
-  target_type text,
-  target_name text,
-  detail text,
-  created_at timestamptz default now()
-);`}</pre>
-      </div>
       {/* Store Manager — chỉ Super Admin */}
       {isSuperAdmin && (
         <StoreManager stores={stores} onStoresChanged={onStoresChanged} user={user} />
