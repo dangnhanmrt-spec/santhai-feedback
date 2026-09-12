@@ -1,3 +1,4 @@
+import WeatherDashboard from "./WeatherDashboard.jsx";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   loadFeedbacks, saveFeedback, deleteFeedback,
@@ -1698,6 +1699,7 @@ export default function App() {
 
   const TABS = [
     { id: "dashboard", label: "📊 Dashboard" },
+    { id: "weather", label: "🌦️ Thời tiết" },
     { id: "timeline", label: "📅 Timeline" },
     { id: "input", label: "➕ Nhập feedback" },
     ...(userRole === "admin" ? [{ id: "history", label: "📋 Lịch sử" }] : []),
@@ -1729,6 +1731,7 @@ export default function App() {
 
       <div style={S.content}>
         {tab === "dashboard" && <Dashboard feedbacks={feedbacks} stores={stores} />}
+        {tab === "weather" && <WeatherDashboard />}
         {tab === "timeline" && <Timeline feedbacks={feedbacks} stores={stores} />}
         {tab === "input" && (
           <InputFeedback
