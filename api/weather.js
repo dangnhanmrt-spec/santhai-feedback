@@ -1,7 +1,7 @@
 import { ACTIVE_WEATHER_STORES } from "../src/weatherStores.js";
 
 const SUPABASE_URL = "https://stxymyjwxdtfxkvmsgmz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYXNlIiwicmVmIjoic3R4eW15and4ZHRmeGt2bXNnbXoiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3Njg3ODg4MiwiZXhwIjoyMDkyNDU0ODgyfQ.dxF-84q5CSoT21b__zq8XgUfyRuSAwIov9PL269WWm4";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0eHlteWp3eGR0Znhrdm1zZ216Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Nzg4ODIsImV4cCI6MjA5MjQ1NDg4Mn0.dxF-84q5CSoT21b__zq8XgUfyRuSAwIov9PL269WWm4";
 const SOURCE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact";
 const USER_AGENT = "SanThaiWeather/1.0 trasuasanthai.com";
 const CACHE_TTL = 25 * 60 * 1000;
