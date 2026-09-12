@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getSession } from "./supabase.js";
+import { getSession, supabase } from "./supabase.js";
 
 const COLORS = {
   high: { label: "Nguy cơ cao", color: "#fb7185", bg: "rgba(244,63,94,.13)", border: "rgba(244,63,94,.35)" },
@@ -104,10 +104,16 @@ export default function WeatherDashboard() {
     background ? setRefreshing(true) : setLoading(true);
     setError("");
     try {
-      const session = await getSession();
-      const token = session?.access_token;
+      let session = await getSession();
+      let token = session?.access_token;
       if (!token) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-      const response = await fetch("/api/weather", { headers: { Authorization: `Bearer ${token}` } });
+      let response = await fetch("/api/weather", { headers: { Authorization: `Bearer ${token}` } });
+      if (response.status === 401) {
+        const { data } = await supabase.auth.refreshSession();
+        session = data?.session;
+        token = session?.access_token;
+        if (token) response = await fetch("/api/weather", { headers: { Authorization: `Bearer ${token}` } });
+      }
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Không thể tải thời tiết.");
       setRows(payload.stores || []);
