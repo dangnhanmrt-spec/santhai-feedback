@@ -1,7 +1,7 @@
 import { ACTIVE_WEATHER_STORES } from "../src/weatherStores.js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../src/supabaseConfig.js";
 
-const SUPABASE_URL = "https://stxymyjwxdtfxkvmsgmz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYXNlIiwicmVmIjoic3R4eW15and4ZHRmeGt2bXNnbXoiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3Njg3ODg4MiwiZXhwIjoyMDkyNDU0ODgyfQ.dxF-84q5CSoT21b__zq8XgUfyRuSAwIov9PL269WWm4";
+const SUPER_ADMIN = "dangnhan.mrt@gmail.com";
 const PRIMARY_SOURCE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact";
 const FALLBACK_SOURCE_URL = "https://api.open-meteo.com/v1/forecast";
 const USER_AGENT = "SanThaiWeather/1.0 trasuasanthai.com";
@@ -20,15 +20,18 @@ async function authorize(req) {
   if (!token) return null;
 
   const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   });
   if (!userResponse.ok) return null;
   const user = await userResponse.json();
   if (!user?.email) return null;
 
-  const query = new URLSearchParams({ select: "role", email: `eq.${user.email.toLowerCase()}`, limit: "1" });
+  const email = user.email.toLowerCase().trim();
+  if (email === SUPER_ADMIN) return { email: user.email, role: "super_admin" };
+
+  const query = new URLSearchParams({ select: "role", email: `eq.${email}`, limit: "1" });
   const accessResponse = await fetch(`${SUPABASE_URL}/rest/v1/allowed_emails?${query}`, {
-    headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   });
   if (!accessResponse.ok) return null;
   const rows = await accessResponse.json();
