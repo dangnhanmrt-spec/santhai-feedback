@@ -1,7 +1,7 @@
 import { ACTIVE_WEATHER_STORES } from "../src/weatherStores.js";
 
 const SUPABASE_URL = "https://stxymyjwxdtfxkvmsgmz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0eHlteWp3eGR0Znhrdm1zZ216Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Nzg4ODIsImV4cCI6MjA5MjQ1NDg4Mn0.dxF-84q5CSoT21b__zq8XgUfyRuSAwIov9PL269WWm4";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYXNlIiwicmVmIjoic3R4eW15and4ZHRmeGt2bXNnbXoiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3Njg3ODg4MiwiZXhwIjoyMDkyNDU0ODgyfQ.dxF-84q5CSoT21b__zq8XgUfyRuSAwIov9PL269WWm4";
 const SOURCE_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact";
 const USER_AGENT = "SanThaiWeather/1.0 trasuasanthai.com";
 const CACHE_TTL = 25 * 60 * 1000;
@@ -59,17 +59,46 @@ function number(value, digits = 1) {
   return Number.isFinite(Number(value)) ? Number(Number(value).toFixed(digits)) : null;
 }
 
+function vietnamDateHour(value) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour),
+  };
+}
+
+function addDays(date, days) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function operationDate(value = new Date()) {
+  const local = vietnamDateHour(value);
+  return local.hour >= 21 ? addDays(local.date, 1) : local.date;
+}
+
 function parseForecast(store, payload) {
   const series = payload?.properties?.timeseries || [];
   if (!series.length) throw new Error("Nguồn thời tiết không trả dữ liệu.");
 
-  const hours = series.slice(0, 24).map((entry) => {
+  const hours = series.slice(0, 48).map((entry) => {
     const instant = entry.data?.instant?.details || {};
     const one = entry.data?.next_1_hours || {};
     const six = entry.data?.next_6_hours || {};
     const symbol = one.summary?.symbol_code || six.summary?.symbol_code || "";
+    const local = vietnamDateHour(entry.time);
     return {
       time: entry.time,
+      localDate: local.date,
+      localHour: local.hour,
       temp: number(instant.air_temperature),
       humidity: number(instant.relative_humidity, 0),
       wind: number(instant.wind_speed),
@@ -82,26 +111,45 @@ function parseForecast(store, payload) {
     };
   });
 
-  const current = hours[0];
-  const next6 = hours.slice(0, 6);
-  const rain6h = number(next6.reduce((sum, hour) => sum + (hour.rain || 0), 0));
-  const maxRainHour = Math.max(0, ...next6.map((hour) => hour.rain || 0));
-  const availableProbabilities = next6.map((hour) => hour.rainProbability).filter((v) => v !== null);
+  const targetDate = operationDate();
+  let operationHours = hours.filter((hour) => hour.localDate === targetDate && hour.localHour >= 8 && hour.localHour <= 21);
+  if (!operationHours.length) {
+    const firstAvailable = hours.find((hour) => hour.localHour >= 8 && hour.localHour <= 21);
+    operationHours = firstAvailable
+      ? hours.filter((hour) => hour.localDate === firstAvailable.localDate && hour.localHour >= 8 && hour.localHour <= 21)
+      : hours.slice(0, 12);
+  }
+
+  const current = operationHours[0] || hours[0];
+  const rainInWindow = number(operationHours.reduce((sum, hour) => sum + (hour.rain || 0), 0));
+  const maxRainHour = Math.max(0, ...operationHours.map((hour) => hour.rain || 0));
+  const availableProbabilities = operationHours.map((hour) => hour.rainProbability).filter((v) => v !== null);
   const rainProbability = availableProbabilities.length ? Math.max(...availableProbabilities) : null;
-  const maxWind = number(Math.max(0, ...next6.map((hour) => Math.max(hour.wind || 0, hour.gust || 0))));
-  const maxTemp = number(Math.max(...next6.map((hour) => hour.temp ?? -99)));
-  const hasThunder = next6.some((hour) => hour.symbol.includes("thunder"));
-  const hasRain = next6.some((hour) => hour.symbol.includes("rain"));
+  const maxWind = number(Math.max(0, ...operationHours.map((hour) => Math.max(hour.wind || 0, hour.gust || 0))));
+  const maxTemp = number(Math.max(...operationHours.map((hour) => hour.temp ?? -99)));
+  const hasThunder = operationHours.some((hour) => hour.symbol.includes("thunder"));
+  const hasRain = operationHours.some((hour) => hour.symbol.includes("rain"));
 
   let risk = "low";
-  let reason = "Điều kiện ổn định";
-  if (hasThunder || rain6h >= 20 || maxRainHour >= 8 || maxWind >= 15) {
+  let reason = "Điều kiện ổn định trong khung 08–21h";
+  if (hasThunder || rainInWindow >= 20 || maxRainHour >= 8 || maxWind >= 15) {
     risk = "high";
-    reason = hasThunder ? "Có khả năng mưa giông" : rain6h >= 20 ? "Mưa lớn trong 6 giờ tới" : "Gió mạnh hoặc mưa lớn cục bộ";
-  } else if (rain6h >= 5 || maxRainHour >= 2 || (rainProbability !== null && rainProbability >= 65) || hasRain || maxTemp >= 35 || maxWind >= 9) {
+    reason = hasThunder ? "Có khả năng mưa giông trong khung 08–21h" : rainInWindow >= 20 ? "Mưa lớn trong khung 08–21h" : "Gió mạnh hoặc mưa lớn cục bộ trong khung 08–21h";
+  } else if (rainInWindow >= 5 || maxRainHour >= 2 || (rainProbability !== null && rainProbability >= 65) || hasRain || maxTemp >= 35 || maxWind >= 9) {
     risk = "medium";
-    reason = rain6h >= 5 || hasRain ? "Có mưa trong 6 giờ tới" : maxTemp >= 35 ? "Nắng nóng" : "Gió mạnh cần lưu ý";
+    reason = rainInWindow >= 5 || hasRain ? "Có mưa trong khung 08–21h" : maxTemp >= 35 ? "Nắng nóng trong khung 08–21h" : "Gió mạnh cần lưu ý trong khung 08–21h";
   }
+
+  const operationWindow = {
+    label: "08:00–21:00",
+    date: current.localDate || targetDate,
+    startTime: operationHours[0]?.time || null,
+    endTime: operationHours.at(-1)?.time || null,
+    rain: rainInWindow,
+    rainProbability,
+    maxWind,
+    maxTemp,
+  };
 
   return {
     id: store.id,
@@ -116,14 +164,15 @@ function parseForecast(store, payload) {
     risk,
     reason,
     current,
-    next6h: { rain: rain6h, rainProbability, maxWind, maxTemp },
-    hourly: hours.slice(0, 12),
+    operationWindow,
+    next6h: operationWindow,
+    hourly: operationHours,
     sourceUpdatedAt: payload?.properties?.meta?.updated_at || null,
   };
 }
 
 async function fetchStoreWeather(store) {
-  const key = `${store.point.lat.toFixed(4)},${store.point.lon.toFixed(4)}`;
+  const key = `${store.point.lat.toFixed(4)},${store.point.lon.toFixed(4)},${operationDate()}`;
   const cached = pointCache.get(key);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL) return { ...cached.value, ...pickStore(store) };
 
@@ -203,4 +252,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error?.message || "Không thể tải dữ liệu thời tiết." });
   }
 }
-
