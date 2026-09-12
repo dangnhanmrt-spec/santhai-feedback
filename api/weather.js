@@ -133,7 +133,7 @@ async function fetchStoreWeather(store) {
 
   const response = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-    signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(9000) : undefined,
+    signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined,
   });
   if (!response.ok) throw new Error(`MET Norway trả mã ${response.status}`);
   const value = parseForecast(store, await response.json());
