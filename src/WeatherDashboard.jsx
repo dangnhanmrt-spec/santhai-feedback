@@ -36,7 +36,7 @@ function SummaryCard({ label, value, tone, note }) {
 function StoreCard({ store, expanded, onToggle }) {
   const tone = COLORS[store.risk] || COLORS.unknown;
   const current = store.current || {};
-  const next = store.next6h || {};
+  const next = store.operationWindow || store.next6h || {};
   return (
     <article className="weather-store-card" style={{ borderColor: tone.border }}>
       <button className="weather-store-main" onClick={onToggle} aria-expanded={expanded}>
@@ -50,10 +50,10 @@ function StoreCard({ store, expanded, onToggle }) {
         </div>
         <div className="weather-current">
           <span className="weather-icon">{current.icon || "🌡️"}</span>
-          <div><strong>{current.temp === null || current.temp === undefined ? "—" : current.temp + "°"}</strong><span>{current.condition || "Chưa có dữ liệu"}</span></div>
+          <div><strong>{current.temp === null || current.temp === undefined ? "—" : current.temp + "°"}</strong><span>{current.condition || "Chưa có dữ liệu"}{current.time ? ` · ${vnTime(current.time, { hour: "2-digit", minute: "2-digit" })}` : ""}</span></div>
         </div>
         <div className="weather-row-metrics">
-          <Metric label="Mưa 6 giờ" value={next.rain === null || next.rain === undefined ? "—" : next.rain + " mm"} tone={next.rain >= 5 ? "#fbbf24" : "#e2e8f0"} />
+          <Metric label="Mưa 08–21h" value={next.rain === null || next.rain === undefined ? "—" : next.rain + " mm"} tone={next.rain >= 5 ? "#fbbf24" : "#e2e8f0"} />
           <Metric label="Nhiệt cao nhất" value={next.maxTemp === null || next.maxTemp === undefined ? "—" : next.maxTemp + "°C"} tone={next.maxTemp >= 35 ? "#fbbf24" : "#e2e8f0"} />
           <Metric label="Gió mạnh nhất" value={next.maxWind === null || next.maxWind === undefined ? "—" : next.maxWind + " m/s"} />
         </div>
@@ -66,6 +66,7 @@ function StoreCard({ store, expanded, onToggle }) {
             <div className="weather-error-inline">{store.error}</div>
           ) : (
             <>
+              <div className="weather-window-caption">Dự báo theo giờ · {next.startTime ? `${vnTime(next.startTime, { weekday: "short", day: "2-digit", month: "2-digit" })} · 08:00–21:00` : "08:00–21:00"}</div>
               <div className="weather-hour-strip">
                 {(store.hourly || []).map((hour) => (
                   <div className="weather-hour" key={hour.time}>
@@ -138,6 +139,7 @@ export default function WeatherDashboard() {
     low: rows.filter((row) => row.risk === "low").length,
     unknown: rows.filter((row) => row.risk === "unknown").length,
   }), [rows]);
+  const forecastStart = rows.find((row) => row.operationWindow?.startTime)?.operationWindow?.startTime;
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -184,7 +186,8 @@ export default function WeatherDashboard() {
         .weather-metric{display:flex;flex-direction:column;gap:3px}.weather-metric span{font-size:9px;color:#526275;text-transform:uppercase}.weather-metric strong{font-size:12px;font-weight:600}
         .weather-chevron{color:#64748b;font-size:19px;text-align:right}
         .weather-detail{border-top:1px solid rgba(255,255,255,.06);padding:12px 15px 14px;background:rgba(2,6,23,.2)}
-        .weather-hour-strip{display:grid;grid-template-columns:repeat(12,minmax(58px,1fr));gap:5px;overflow-x:auto;padding-bottom:4px}
+        .weather-window-caption{margin:0 0 8px;font-size:10px;color:#64748b}
+        .weather-hour-strip{display:grid;grid-template-columns:repeat(14,minmax(58px,1fr));gap:5px;overflow-x:auto;padding-bottom:4px}
         .weather-hour{min-width:55px;background:rgba(255,255,255,.035);border-radius:8px;padding:7px 5px;text-align:center;display:flex;flex-direction:column;gap:4px}
         .weather-hour span{font-size:9px;color:#64748b}.weather-hour b{font-size:17px}.weather-hour strong{font-size:11px;color:#e2e8f0}.weather-hour em{font-size:9px;color:#7dd3fc;font-style:normal}
         .weather-store-footer{display:flex;justify-content:space-between;gap:16px;margin-top:10px;font-size:10px;color:#526275}.weather-store-footer a{color:#7dd3fc;text-decoration:none;white-space:nowrap}
@@ -198,7 +201,7 @@ export default function WeatherDashboard() {
       <div className="weather-toolbar">
         <div className="weather-title">
           <h2>Thời tiết cửa hàng</h2>
-          <p>{updatedAt ? `Cập nhật lúc ${vnTime(updatedAt, { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })} · tự làm mới mỗi 30 phút` : "Dự báo theo tọa độ Plus Code của từng cửa hàng"}</p>
+          <p>{updatedAt ? `Khung 08:00–21:00${forecastStart ? ` ngày ${vnTime(forecastStart, { weekday: "short", day: "2-digit", month: "2-digit" })}` : ""} · cập nhật lúc ${vnTime(updatedAt, { hour: "2-digit", minute: "2-digit" })} · tự làm mới mỗi 30 phút` : "Dự báo khung 08:00–21:00 theo tọa độ Plus Code của từng cửa hàng"}</p>
         </div>
         <button className="weather-refresh" onClick={() => loadWeather(true)} disabled={loading || refreshing}>
           {refreshing ? "Đang cập nhật…" : "↻ Cập nhật"}
