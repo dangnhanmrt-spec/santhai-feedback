@@ -66,7 +66,7 @@ function StoreCard({ store, expanded, onToggle }) {
             <div className="weather-error-inline">{store.error}</div>
           ) : (
             <>
-              <div className="weather-window-caption">Dự báo theo giờ · {next.startTime ? `${vnTime(next.startTime, { weekday: "short", day: "2-digit", month: "2-digit" })} · 08:00–21:00` : "08:00–21:00"}</div>
+              <div className="weather-window-caption">Dự báo theo giờ · {next.startTime ? `${vnTime(next.startTime, { weekday: "short", day: "2-digit", month: "2-digit" })} · 08:00–21:00` : "08:00–21:00"} · Nguồn: {store.dataSource || "MET Norway"}</div>
               <div className="weather-hour-strip">
                 {(store.hourly || []).map((hour) => (
                   <div className="weather-hour" key={hour.time}>
@@ -239,7 +239,7 @@ export default function WeatherDashboard() {
         </div>
       )}
 
-      <div className="weather-source">Dữ liệu từ <a href="https://api.met.no/" target="_blank" rel="noreferrer">MET Norway</a>. Dự báo mang tính tham khảo theo ô lưới khí tượng.</div>
+      <div className="weather-source">Nguồn chính: <a href="https://api.met.no/" target="_blank" rel="noreferrer">MET Norway</a> · Dự phòng: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo/GFS</a>. Dự báo mang tính tham khảo theo ô lưới khí tượng.</div>
     </section>
   );
 }
