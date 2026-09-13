@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getSession, supabase } from "./supabase.js";
+import { getSession, supabase } from "./supabaseAuth.js";
 
 function vietnamDate(value = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getSession, supabase } from "./supabase.js";
+import { getSession, supabase } from "./supabaseAuth.js";
 
 const COLORS = {
   high: { label: "Nguy cơ cao", color: "#fb7185", bg: "rgba(244,63,94,.13)", border: "rgba(244,63,94,.35)" },
