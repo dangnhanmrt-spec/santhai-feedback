@@ -45,3 +45,7 @@ Only the system owner can choose a completed backup and explicitly confirm `KHOI
 ## Validation
 
 `npm test` covers visit denominators, multiple issues, historical exclusions, hygiene outcomes, Vietnam date boundaries and backup validation. `npm run build` checks both Feedback and Weather bundles. Database rollback tests cover Audit administrator versus Feedback viewer, denied cross-module escalation, denied viewer writes, and denied unlisted/anonymous reads.
+
+Apply SQL in this order on a new install: `db/audit-v1.sql`, `db/audit-store-sync.sql`, `db/backup-timeouts.sql`, then `db/backup-private-facades.sql`. Privileged backup implementations live in the non-exposed private schema; public RPC facades use SECURITY INVOKER and require the scoped token.
+
+The complete restore path was exercised against the full imported snapshot inside a transaction and rolled back. Original Feedback rows were independently compared to the pre-upgrade snapshot and were unchanged. Google Drive end-to-end verification remains pending initial owner authorization.
