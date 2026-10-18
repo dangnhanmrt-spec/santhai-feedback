@@ -27,9 +27,14 @@ export async function deleteAllowedEmail(email) {
 
 export async function loadFeedbacks() {
   try {
-    const { data, error } = await supabase
-      .from('feedbacks').select('*').order('feedback_date', { ascending: false });
-    if (error) { console.warn('[loadFeedbacks]', error.message); return []; }
+    const data = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data: page, error } = await supabase.from('feedbacks').select('*')
+        .order('feedback_date', { ascending: false }).order('id').range(offset, offset + 499);
+      if (error) throw error;
+      data.push(...page);
+      if (page.length < 500) break;
+    }
     return (data || []).map(r => ({
       id: r.id,
       storeId: r.store_id,
