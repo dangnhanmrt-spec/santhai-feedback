@@ -1,4 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import AuditApp, { AccessManager } from "./audit/AuditApp.jsx";
+import { loadMyAccess } from "./audit/api.js";
+import { BackupPanel, CompactOverview, ModuleSwitcher } from "./audit/Workspace.jsx";
 import {
   loadFeedbacks, saveFeedback, deleteFeedback,
   loadAllowedEmails, saveAllowedEmail, deleteAllowedEmail,
@@ -1242,128 +1245,8 @@ function InputFeedback({ feedbacks, stores, onSave, onDelete, user, userRole }) 
 /* ═══════════════════════════════════════════════════
    ADMIN TAB
    ═══════════════════════════════════════════════════ */
-function AdminPanel({ user, userRole, stores, onStoresChanged }) {
-  const [emails, setEmails] = useState([]);
-  const [newEmail, setNewEmail] = useState("");
-  const [newRole, setNewRole] = useState("viewer");
-  const [loading, setLoading] = useState(false);
-
-  const isSuperAdmin = user?.email === SUPER_ADMIN;
-
-  useEffect(() => {
-    loadAllowedEmails().then(setEmails);
-  }, []);
-
-  async function addEmail() {
-    if (!newEmail.trim() || !newEmail.includes("@")) return;
-    // Admin thường không được thêm admin
-    if (!isSuperAdmin && newRole === "admin") return;
-    setLoading(true);
-    await saveAllowedEmail(newEmail.trim(), newRole);
-    await writeLog(user?.email, user?.displayName, "create", "email", newEmail.trim(), `role: ${newRole}`);
-    const list = await loadAllowedEmails();
-    setEmails(list);
-    setNewEmail("");
-    setLoading(false);
-  }
-
-  async function removeEmail(email) {
-    await deleteAllowedEmail(email);
-    await writeLog(user?.email, user?.displayName, "delete", "email", email, "");
-    const list = await loadAllowedEmails();
-    setEmails(list);
-  }
-
-  // Kiểm tra có được phép xóa email này không
-  function canDelete(targetEmail, targetRole) {
-    if (targetEmail === SUPER_ADMIN) return false;         // Không ai xóa Super Admin
-    if (targetEmail === user?.email) return false;          // Không tự xóa mình
-    if (isSuperAdmin) return true;                         // Super Admin xóa được tất cả
-    if (targetRole === "admin") return false;               // Admin không xóa admin khác
-    return true;                                           // Admin xóa được viewer
-  }
-
-  const roleLabel = (role, email) => {
-    if (email === SUPER_ADMIN) return { label: "👑 Super Admin", bg: "rgba(234,179,8,0.2)", color: "#facc15" };
-    if (role === "admin") return { label: "🔑 Admin", bg: "rgba(99,102,241,0.2)", color: "#a5b4fc" };
-    return { label: "👁 Viewer", bg: "rgba(56,189,248,0.15)", color: "#7dd3fc" };
-  };
-
-  return (
-    <div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: "#e0e7ef", marginBottom: 20 }}>⚙️ Quản lý quyền truy cập</div>
-
-      {/* Phân quyền hiện tại */}
-      <div style={{ ...S.card, borderColor: "rgba(234,179,8,0.2)", marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: "#7a8fa5", lineHeight: 1.8 }}>
-          <strong style={{ color: "#facc15" }}>👑 Super Admin</strong> — Thêm/xóa tất cả, bao gồm Admin<br/>
-          <strong style={{ color: "#a5b4fc" }}>🔑 Admin</strong> — Thêm/xóa Viewer, không thêm/xóa Admin<br/>
-          <strong style={{ color: "#7dd3fc" }}>👁 Viewer</strong> — Chỉ xem dữ liệu, không chỉnh sửa
-        </div>
-      </div>
-
-      <div style={S.card}>
-        <div style={S.cardTitle}>➕ Thêm email được phép</div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input
-            style={{ ...S.inp, flex: 2, minWidth: 220 }}
-            placeholder="email@example.com"
-            value={newEmail}
-            onChange={e => setNewEmail(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && addEmail()}
-          />
-          <select style={{ ...S.sel, flex: 1, minWidth: 120 }} value={newRole} onChange={e => setNewRole(e.target.value)}>
-            <option value="viewer">Viewer (chỉ xem)</option>
-            {isSuperAdmin && <option value="admin">Admin</option>}
-          </select>
-          <button style={{ ...S.btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={addEmail} disabled={loading}>
-            Thêm
-          </button>
-        </div>
-      </div>
-
-      <div style={S.card}>
-        <div style={S.cardTitle}>📋 Danh sách email ({emails.length})</div>
-        {emails.length === 0 ? (
-          <div style={{ color: "#556677", fontSize: 13 }}>Chưa có email nào. Bắt đầu thêm ở trên.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {emails.map(e => {
-              const rl = roleLabel(e.role, e.email);
-              const deletable = canDelete(e.email, e.role);
-              return (
-                <div key={e.email} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "10px 14px", background: "rgba(255,255,255,0.025)",
-                  border: e.email === SUPER_ADMIN ? "1px solid rgba(234,179,8,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 8,
-                }}>
-                  <div>
-                    <div style={{ fontSize: 14, color: "#dde6f0" }}>{e.email}</div>
-                    <div style={{ fontSize: 11, marginTop: 2 }}>
-                      <span style={{ padding: "2px 8px", borderRadius: 8, background: rl.bg, color: rl.color, fontSize: 11, fontWeight: 600 }}>
-                        {rl.label}
-                      </span>
-                    </div>
-                  </div>
-                  {deletable ? (
-                    <button style={S.btnDanger} onClick={() => removeEmail(e.email)}>Xóa</button>
-                  ) : (
-                    <span style={{ fontSize: 11, color: "#3a4d60" }}>
-                      {e.email === SUPER_ADMIN ? "🔒 Không thể xóa" : e.email === user?.email ? "" : "🔒"}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Store Manager — chỉ Super Admin */}
-      <StoreManager onStoresChanged={onStoresChanged} user={user} />
-    </div>
-  );
+function AdminPanel({ user, stores, onStoresChanged }) {
+  return <><AccessManager user={user} module="feedback" /><StoreManager onStoresChanged={onStoresChanged} user={user} /></>;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1591,6 +1474,8 @@ function StoreManager({ onStoresChanged, user }) {
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined=loading, null=not logged in
   const [userRole, setUserRole] = useState(null);
+  const [access, setAccess] = useState({});
+  const [workspace, setWorkspace] = useState("feedback");
   const [feedbacks, setFeedbacks] = useState([]);
   const [stores, setStores] = useState([]);
   const [tab, setTab] = useState("dashboard");
@@ -1616,12 +1501,15 @@ export default function App() {
         }
 
         // Có user → check role
-        const role = await checkEmailAccess(u.email);
+        const permissions = await loadMyAccess();
+        const role = permissions.feedback || (permissions.audit ? "audit_only" : null);
         if (!mounted) return;
 
         // Set CẢ HAI cùng lúc để không flash màn AccessDenied
         setUser(u);
         setUserRole(role);
+        setAccess(permissions);
+        if (!permissions.feedback && permissions.audit) setWorkspace("audit");
         if (role === null) setAuthError(`Email ${u.email} không có trong danh sách cho phép.`);
         setAuthChecking(false);
       } catch (err) {
@@ -1638,7 +1526,7 @@ export default function App() {
     const { data: { subscription } } = onAuthChange((event, session) => {
       if (!mounted) return;
       if (event === "SIGNED_OUT") {
-        setUser(null); setUserRole(null); setAuthError(null);
+        setUser(null); setUserRole(null); setAccess({}); setAuthError(null);
         return;
       }
       if (event === "SIGNED_IN") {
@@ -1656,12 +1544,12 @@ export default function App() {
   // Load feedbacks + stores
   useEffect(() => {
     if (!user || !userRole) return;
-    Promise.all([loadFeedbacks(), loadStores()]).then(([fbs, sts]) => {
+    Promise.all([access.feedback ? loadFeedbacks() : Promise.resolve([]), loadStores()]).then(([fbs, sts]) => {
       setFeedbacks(fbs);
       setStores(sts);
       setDbStatus("supabase");
     });
-  }, [user, userRole]);
+  }, [user, userRole, access.feedback]);
 
   const handleSave = useCallback(async (fb) => {
     const result = await saveFeedback(fb);
@@ -1696,6 +1584,11 @@ export default function App() {
   // Đã đăng nhập nhưng không có quyền
   if (!userRole) return <AccessDenied user={user} authError={authError} onSignOut={signOut} />;
 
+  const switcher = <ModuleSwitcher access={access} user={user} selected={workspace} onSelect={setWorkspace} />;
+  if (workspace === "audit" && access.audit) return <div style={S.app}>{switcher}<AuditApp stores={stores.map(enrichStore)} user={user} role={access.audit} onSignOut={signOut} /></div>;
+  if (workspace === "overview") return <div style={S.app}>{switcher}<CompactOverview access={access} stores={stores.map(enrichStore)} feedbacks={feedbacks} onSelect={setWorkspace}/></div>;
+  if (workspace === "backup" && user.email === SUPER_ADMIN) return <div style={S.app}>{switcher}<BackupPanel /></div>;
+
   const TABS = [
     { id: "dashboard", label: "📊 Dashboard" },
     { id: "timeline", label: "📅 Timeline" },
@@ -1707,6 +1600,7 @@ export default function App() {
   return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+      {switcher}
       <header style={S.header}>
         <div style={S.logo}>📋 SanThai Feedback</div>
         <nav style={S.nav}>
