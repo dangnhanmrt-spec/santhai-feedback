@@ -62,24 +62,31 @@ The Audit admin workspace includes a separate “Nhật ký thao tác” screen,
 
 ## Bulk entry — 21 October 2026
 
-- Audit editors/admins: **Nhập hàng loạt** in Audit navigation and report actions.
-- Choose active stores by region/search, select all currently filtered stores, or individual stores. Hidden selections remain visible in the selected-store list.
-- Separate inspection and hygiene flows. Inspection selects multiple active error types or explicit no-violation, then allows per-store time, issues, descriptions, notes and exclusion. Hygiene selects multiple shifts, common result/note/reason, then per-store/shift corrections.
-- Preview freshly reads hygiene results for the selected date. Existing results default to skipped; explicit per-row or bulk opt-in updates manual records. Legacy results remain protected. Updates include the preview timestamp and reject a concurrent change.
-- `db/audit-bulk.sql`: `audit_save_bulk` is SECURITY INVOKER and retains existing per-record RLS and logging. Each request saves atomically; any invalid row rolls everything back. Maximum 300 rows / 1 MB. Retry receipts use `(created_by, request_id)` with owner-only SELECT/INSERT RLS, no anonymous access; the original payload hash prevents changed retries. Request locking serializes concurrent retries.
-- Pending requests are kept in the browser tab's session storage under the signed-in account. A lost response can be retried with the identical ID and payload, including after reloading/reopening the bulk screen in that tab. Confirm the outstanding request before beginning another. A new separately confirmed batch intentionally creates a new Audit visit, including on the same day.
-- Business records continue to use existing tables and daily backups. `audit_bulk_requests` holds operational retry receipts, not source records; it is outside the business backup/restore allowlist.
-- Pre-change backup completed at 02:27:51 on 21/10/2026 (Vietnam), run `113df85b-cda4-41d7-bb23-765c45d49073`; [Google Sheets](https://docs.google.com/spreadsheets/d/1_CSP6C184IAIqnIUwUrd8U9YdnOxUegn8VQLdWAMUqI/edit).
-- Validation: build, 10 Node tests, database rollback tests for complete rollback, same-request retry, changed-payload rejection, clean-visit confirmation, optimistic hygiene conflicts, per-visit logging, and editor/viewer/outsider/anonymous roles. Existing shared-project advisor findings remain outside this change; no new bulk-entry finding.
+The previous bulk layouts were rejected by the owner. This implemented candidate is not an accepted design. These notes supersede the old three-screen flow, pagination, full-width-only bulk shell, collapsed row editors and green selection.
 
-### Bulk UX correction — 21 October 2026
+### Workflow
 
-The initial bulk UI was rejected by the owner as confusing. Screenshots showed its sticky footer covering checkboxes, oversized task cards, simultaneous input panels, and separate scrolling lists. This is not an approved UI baseline.
+- Editors/admins open **Nhập hàng loạt**, then choose inspection or hygiene.
+- One setup screen shows all filtered active stores beside common content. Stores are grouped by existing Feedback region colors. There is no pagination, duplicate selected-store list, fixed footer or nested vertical store scroller.
+- **Chọn tất cả** and **Bỏ chọn** sit together and apply to the displayed list. **Đã chọn** is the full batch count; the separately labelled list total describes only the current display. Region/search filters retain selection. A warning identifies hidden selections, with actions to inspect the same list or clear all.
+- Inspection supports date/time, multiple types/descriptions or explicit no-violation. Hygiene supports any subset of three shifts, result, note and unavailable reason. Blanks never mean pass/no-violation.
+- **Lập bảng kiểm tra** creates an editable table. Correct individual times, issues, descriptions, outcomes and notes directly. The header shows all new/update/skipped counts. Display filters never change inclusion.
+- Returning to common content on the same date and work type preserves individual exceptions and updates untouched fields. New store/shift rows inherit defaults. Changing date or work type starts fresh row defaults.
+- An inspection is a new visit, even for a store already inspected that day. Existing hygiene results start skipped; manual rows require individual opt-in to update, legacy rows stay locked. Skipped rows explicitly say no change. Original update timestamps remain attached across common-content rebuilds, so concurrent changes are not silently accepted.
+- Every Audit tab shares one application width, heading scale, navigation and buttons. Selection is blue; pass/fail/pending/unavailable remain distinct business states. Earlier appended bulk CSS layers are replaced by one component section.
 
-The revised flow presents one task at a time: stores → shared content → editable review. Store choices use 12-item pages with a selection count retained across filters/pages; “select all filtered” still selects the entire filtered set. The action row is in normal document flow, below the content, with no sticky/fixed positioning or overlay. Error choices scroll with the document. Review starts collapsed and shows only selected errors when expanded, with a compact add-error selector. No database or permission changes.
+### Save protections retained
 
-### Bulk UI correction — 21 October 2026
-The owner rejected the previous constrained-width layout and ambiguous cyan treatment. Bulk entry now fills the application width, uses four store columns on desktop and six on wide screens, groups select/clear actions together, and compacts spacing on short desktop viewports. Primary progression/save uses solid cyan; secondary actions are outlined; counts are plain text; current progress is muted amber; selected stores use neutral slate with checked controls. Toolbar and pagination share rows to reduce vertical waste. The footer remains in document flow. No database or business logic change. This is an implementation correction, not owner design acceptance.
+The existing audit_save_bulk RPC, SQL, permissions and API adapter are unchanged. Each request is atomic (300 rows / 1 MB maximum); invalid rows roll back the batch. Owner-scoped receipts and payload hashes reject changed retries, with locking for concurrent retries. Per-record RLS and action logging remain in place.
 
-### Owner correction — selection UX, 21 October 2026
-The owner also rejected the duplicated selected-store dropdown, the unused area caused by a fixed twelve-store page, and the ambiguous `0 / 65` and select-all button count. These supersede the pagination approach described above. The picker now renders every filtered store directly, removes mirrored selection chips and the common-content dropdown, shows only the selected count in its live status, and labels the separate list total explicitly. Select/clear sit together; a primary next action appears beside them and remains available at the end of a long list. Selection uses restrained green/checkmarks; actions retain cyan primary and neutral secondary buttons. No owner design acceptance claimed.
+The tab keeps the same pending-request key/schema under the signed-in account. A lost response locks editing and permits only retry of the original ID/payload. Reopening Bulk after reload recovers that batch before a new one can start. The success screen starts another batch only by explicit action.
+
+No schema, permission, historical/business data, backup-pipeline or shared CEO/Gantt/Spin changes are required. Retry receipts remain outside business restore. The earlier backup completed at 02:27:51 on 21/10/2026 (Vietnam), run 113df85b-cda4-41d7-bb23-765c45d49073 ([Google Sheets](https://docs.google.com/spreadsheets/d/1_CSP6C184IAIqnIUwUrd8U9YdnOxUegn8VQLdWAMUqI/edit)). This is not a claim about the latest backup; this UI release does not write Production business data.
+
+### Verification and limits
+
+- Signed-in live Feedback reference inspected: dashboard with real warnings, weekly table, entry form/history; the old Audit setup/content/review was inspected too.
+- Build and 12 Node tests pass, including exception-preservation and original concurrency-snapshot tests. Existing SQL tests were not rerun against Production for this UI-only change.
+- Isolated browser harness (65 sample stores, 17 categories; no Production writes) exercised empty/partial/all/cleared selections, filters and hidden selections, multiple types, individual exceptions and common-content rebuild, all three shifts, manual/legacy defaults, explicit update, required unavailable reason, successful save, and lost-response recovery after reload. The save adapter was simulated; this is not a new real-database save test.
+- At the actual 1536 × 904 desktop viewport, all five operational tabs retained the same 1440 px shell and 115 px header without page overflow. Screenshots of selection and editable review were visually assessed. At 390 × 844 the page did not overflow; the review table scrolls horizontally. The viewport was restored.
+- Owner acceptance remains pending. Post-deployment checks identify the deployed commit separately from build/local tests.
