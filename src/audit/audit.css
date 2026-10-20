@@ -127,3 +127,9 @@
 .audit-store-filters>summary>.audit-muted{margin-left:auto}
 .audit-store-filters[open]>summary{border-bottom:1px solid var(--audit-line)}
 @media(max-width:680px){.module-switch{flex-wrap:nowrap;overflow-x:auto;padding:7px 10px;gap:2px}.module-switch .module-brand{width:auto;margin:0 6px 0 0;flex-shrink:0;font-size:10px}.module-switch button{flex-shrink:0;white-space:nowrap;min-height:36px}.audit-account .audit-muted{display:none}.audit-logo{white-space:nowrap;font-size:15px}.audit-title{align-items:center}.audit-role{font-size:10px}.audit-tabs{padding-bottom:8px}.audit-store-filters>summary{padding:12px;font-size:12px}.audit-store-filters>summary>.audit-muted{margin-left:0;font-size:11px}.audit-period-row>.audit-inline{gap:5px}.audit-period-row select{max-width:98px;padding:8px;font-size:12px}.audit-period-row input{max-width:133px;font-size:12px}.audit-arrow{width:29px;min-width:29px}.audit-current{display:none}.audit-period-label{font-size:12px}.audit-dialog form>button[type=submit]{float:none;width:100%}}
+
+.audit-btn.danger{color:#fca5a5;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.08)}
+.audit-btn.danger:hover{background:rgba(239,68,68,.17);border-color:rgba(239,68,68,.55)}
+.audit-violation-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--audit-line)}
+.audit-violation-row:last-child{border-bottom:0}.audit-violation-row .audit-btn{flex-shrink:0;min-height:34px;padding:5px 10px}.audit-confirm-actions{justify-content:flex-end;margin-top:20px}
+@media(max-width:680px){.audit-violation-row{gap:10px}.audit-confirm-actions>.audit-btn{flex:1}}

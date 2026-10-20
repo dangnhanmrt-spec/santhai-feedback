@@ -1,3 +1,4 @@
+import {activeInspections} from './metrics.js';
 import {supabase} from '../supabaseAuth.js';
 export async function allRows(table, select='*', filter=q=>q) {
   const rows=[];
@@ -7,9 +8,9 @@ export async function allRows(table, select='*', filter=q=>q) {
 export async function loadMyAccess(){const {data:{user},error:authError}=await supabase.auth.getUser();if(authError)throw authError;if(!user)return {};const {data,error}=await supabase.from('feedback_module_access').select('module,role').eq('email',user.email.toLowerCase());if(error)throw error;return Object.fromEntries(data.map(x=>[x.module,x.role]));}
 export async function loadAudit(start,end){
   const [inspections,hygiene,categories,auditStores]=await Promise.all([
-    allRows('audit_inspections','*,audit_violations(*)',q=>q.gte('audit_date',start).lte('audit_date',end).order('occurred_at',{ascending:false}).order('id')),
+    allRows('audit_inspections','*,audit_violations(*)',q=>q.is('deleted_at',null).gte('audit_date',start).lte('audit_date',end).order('occurred_at',{ascending:false}).order('id')),
     allRows('audit_hygiene','*',q=>q.gte('audit_date',start).lte('audit_date',end).order('audit_date').order('id')),
-    allRows('audit_error_types','*',q=>q.order('name')),allRows('audit_stores','*',q=>q.order('name'))]);return {inspections,hygiene,categories,auditStores};
+    allRows('audit_error_types','*',q=>q.order('name')),allRows('audit_stores','*',q=>q.order('name'))]);return {inspections:activeInspections(inspections),hygiene,categories,auditStores};
 }
 export async function saveInspection({store,occurredAt,note,issues}){
   const {data,error}=await supabase.rpc('audit_save_inspection',{p_store:store,p_occurred_at:occurredAt,p_note:note,p_issues:issues});if(error)throw error;return data;
@@ -21,4 +22,9 @@ export async function backupRequest(action,body={}){
  const {data:{session}}=await supabase.auth.getSession();
  const r=await fetch('/api/backup?action='+action,{method:action==='status'?'GET':'POST',headers:{Authorization:'Bearer '+session?.access_token,'Content-Type':'application/json'},...(action==='status'?{}:{body:JSON.stringify(body)})});
  const result=await r.json();if(!r.ok)throw new Error(result.error||'Không thể xử lý backup');return result;
+}
+
+export async function removeAuditEntry({inspectionId,violationId=null,reason,expectedIssues}) {
+ const {data,error}=await supabase.rpc('audit_remove_entry',{p_inspection:inspectionId,p_violation:violationId,p_reason:reason,p_expected_issues:expectedIssues});
+ if(error)throw error;return data;
 }

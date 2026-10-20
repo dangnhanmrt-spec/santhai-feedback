@@ -13,7 +13,12 @@ export function periodFor(mode, anchor) {
   return {start:anchor,end:anchor};
 }
 export function percent(n,d) {return d ? new Intl.NumberFormat('vi-VN',{maximumFractionDigits:1}).format(n*100/d)+'%' : '—';}
+// Removed rows stay in backups/logs, never in dashboards or rate denominators.
+export function activeInspections(inspections) {
+ return inspections.filter(i=>!i.deleted_at).map(i=>({...i,audit_violations:(i.audit_violations||[]).filter(v=>!v.deleted_at)}));
+}
 export function summarize(stores, inspections, hygiene, categories=[]) {
+  inspections=activeInspections(inspections);
   const types=Object.fromEntries(categories.map(t=>[t.id,t.name]));
   const rows=stores.map(store=>{
     const list=inspections.filter(i=>i.store_id===store.id);

@@ -21,3 +21,17 @@ test('backup validation rejects another project, unknown tables and duplicate ID
  assert.throws(()=>validateSnapshot({...valid,project_ref:'other'}));assert.throws(()=>validateSnapshot({...valid,tables:{feedbacks:[],spin_records:[]}}));assert.throws(()=>validateSnapshot({...valid,tables:{feedbacks:[{id:'1'},{id:'1'}]}}));
  assert.equal(safeEqual('abc','abc'),true);assert.equal(safeEqual('abc','ab'),false);assert.equal(safeEqual(undefined,undefined),false);
 });
+
+test('removed issues and inspections never affect rates, popular errors or repeat counts',()=>{
+ const stores=[{id:'a',active:true},{id:'b',active:true}];
+ const inspections=[
+ {id:'gone',store_id:'b',source:'manual',counted_for_rate:true,deleted_at:'2026-10-20',audit_violations:[{error_type_id:'x'}]},
+ {id:'active',store_id:'a',source:'manual',counted_for_rate:true,audit_violations:[{error_type_id:'x',deleted_at:'2026-10-20'},{error_type_id:'y'}]},
+ {id:'clean',store_id:'a',source:'manual',counted_for_rate:true,audit_violations:[]}
+ ];
+ const result=summarize(stores,inspections,[],[{id:'x',name:'Removed'},{id:'y',name:'Active'}]);
+ assert.equal(result.totals.issues,1);assert.equal(result.totals.eligible,2);assert.equal(result.totals.violating,1);
+ assert.equal(result.rows[0].rate,.5);assert.equal(result.rows[1].inspections,0);assert.equal(result.unchecked,1);
+ assert.deepEqual(result.popular,[{id:'y',name:'Active',count:1}]);assert.deepEqual(result.repeats,[]);
+ assert.equal(inspections[1].audit_violations.length,2,'statistics must not mutate backup/source data');
+});
