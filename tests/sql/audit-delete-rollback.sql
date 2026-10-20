@@ -28,14 +28,13 @@ BEGIN
  IF NOT rejected THEN RAISE EXCEPTION 'Stale count was accepted';END IF;
  rejected:=false;BEGIN PERFORM public.audit_remove_entry(f.i1,f.v3,'Wrong parent',1);EXCEPTION WHEN raise_exception THEN rejected:=true;END;
  IF NOT rejected THEN RAISE EXCEPTION 'Cross-inspection issue was accepted';END IF;
- rejected:=false;BEGIN PERFORM public.audit_remove_entry(f.i1,f.v2,'  ',1);EXCEPTION WHEN raise_exception THEN rejected:=true;END;
- IF NOT rejected THEN RAISE EXCEPTION 'Blank reason was accepted';END IF;
- r:=public.audit_remove_entry(f.i1,f.v2,'Xóa lỗi cuối',1);
+ r:=public.audit_remove_entry(f.i1,f.v2,'  ',1);
  IF NOT (r->>'inspection_removed')::boolean OR NOT EXISTS(SELECT 1 FROM public.audit_inspections WHERE id=f.i1 AND deleted_at IS NOT NULL) THEN RAISE EXCEPTION 'Last issue became clean visit';END IF;
- r:=public.audit_remove_entry(f.i2,NULL,'Trùng lượt kiểm tra',1);
+ r:=public.audit_remove_entry(f.i2,NULL,NULL,1);
  IF NOT (r->>'inspection_removed')::boolean OR NOT EXISTS(SELECT 1 FROM public.audit_violations WHERE id=f.v3 AND deleted_at IS NOT NULL) THEN RAISE EXCEPTION 'Whole visit removal failed';END IF;
  IF NOT EXISTS(SELECT 1 FROM public.audit_inspections WHERE id=f.i3 AND deleted_at IS NULL) THEN RAISE EXCEPTION 'Other clean visit changed';END IF;
- IF (SELECT count(*) FROM public.audit_activity_log WHERE entity_id IN(f.v1::text,f.v2::text,f.i2::text) AND action IN('REMOVE_INSPECTION','REMOVE_VIOLATION') AND details->>'reason' IS NOT NULL)<>3 THEN RAISE EXCEPTION 'Audit log missing';END IF;
+ IF (SELECT count(*) FROM public.audit_activity_log WHERE entity_id IN(f.v1::text,f.v2::text,f.i2::text) AND action IN('REMOVE_INSPECTION','REMOVE_VIOLATION'))<>3 THEN RAISE EXCEPTION 'Audit log missing';END IF;
+ IF EXISTS(SELECT 1 FROM public.audit_activity_log WHERE entity_id IN(f.v2::text,f.i2::text) AND details->>'reason' IS NOT NULL) THEN RAISE EXCEPTION 'Empty reason was not normalized';END IF;
  FOREACH email IN ARRAY f.non_admin_emails || ARRAY['unlisted@example.invalid'] LOOP
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',f.owner_id,'email',email,'role','authenticated')::text,true);
   rejected:=false;BEGIN PERFORM public.audit_remove_entry(f.i3,NULL,'Not permitted',0);EXCEPTION WHEN insufficient_privilege THEN rejected:=true;END;
@@ -48,4 +47,4 @@ BEGIN
 END $$;
 RESET ROLE;
 ROLLBACK;
-SELECT 'Passed: partial removal, last issue, whole visit, log, stale/cross-parent/blank rejection, editor/viewer/outsider/anonymous denial, no direct UPDATE; all fixtures rolled back' AS verification;
+SELECT 'Passed: partial removal, last issue, whole visit, log, blank/null reasons accepted; stale/cross-parent rejection, editor/viewer/outsider/anonymous denial, no direct UPDATE; all fixtures rolled back' AS verification;
