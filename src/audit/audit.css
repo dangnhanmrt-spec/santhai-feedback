@@ -217,3 +217,12 @@
 .audit-app-bulk .audit-title{padding-top:10px;padding-bottom:6px}
 .audit-app-bulk .audit-page-heading h1{font-size:20px;margin:0}
 @media(max-width:760px){.audit-bulk-toolbar{align-items:flex-start;gap:10px}.audit-bulk-list-bottom .audit-bulk-pagination{width:100%;margin-left:0}.audit-bulk-toolbar .audit-bulk-steps{width:100%}}
+@media(min-width:1001px) and (max-height:800px){
+ .audit-app-bulk .audit-title{padding-top:6px;padding-bottom:2px}
+ .audit-app-bulk .audit-page-heading{margin-bottom:8px}
+ .audit-bulk-kind button{padding-top:6px;padding-bottom:6px}
+ .audit-bulk-layout .audit-panel{padding-top:12px;padding-bottom:12px}
+ .audit-bulk-select-actions{margin-top:8px;margin-bottom:8px}
+ .audit-app .audit-bulk-store{padding-top:5px;padding-bottom:5px}
+ .audit-bulk-footer{margin-top:8px;padding-top:8px}
+}
