@@ -208,3 +208,12 @@
 .audit-bulk-chips button{background:#202e40;border-color:#53657c;color:#e0e7ef;border-radius:6px}
 @media(min-width:761px) and (max-width:1000px){.audit-bulk-stores{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(min-width:1500px){.audit-bulk-stores{grid-template-columns:repeat(6,minmax(0,1fr))}}
+
+.audit-bulk-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.audit-bulk-toolbar .audit-bulk-steps,.audit-bulk-toolbar .audit-bulk-kind{margin:0}
+.audit-bulk-list-bottom{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px}
+.audit-bulk-list-bottom .audit-bulk-pagination{margin:0;order:2;margin-left:auto}
+.audit-bulk-list-bottom .audit-bulk-selection{margin:0;padding:0;border:0;max-width:100%}
+.audit-app-bulk .audit-title{padding-top:10px;padding-bottom:6px}
+.audit-app-bulk .audit-page-heading h1{font-size:20px;margin:0}
+@media(max-width:760px){.audit-bulk-toolbar{align-items:flex-start;gap:10px}.audit-bulk-list-bottom .audit-bulk-pagination{width:100%;margin-left:0}.audit-bulk-toolbar .audit-bulk-steps{width:100%}}
