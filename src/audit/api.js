@@ -42,3 +42,8 @@ export async function loadAuditActivity({from='',to='',kind='',actor='',page=0}=
  const {data,error}=await q.range(page*50,page*50+50);if(error)throw error;
  return {rows:data.slice(0,50),hasMore:data.length>50};
 }
+
+export async function saveBulkAudit({id,kind,rows}){
+ const {data,error}=await supabase.rpc('audit_save_bulk',{p_request_id:id,p_kind:kind,p_rows:rows});
+ if(error)throw error;return data;
+}
