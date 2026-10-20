@@ -71,3 +71,9 @@ The Audit admin workspace includes a separate “Nhật ký thao tác” screen,
 - Business records continue to use existing tables and daily backups. `audit_bulk_requests` holds operational retry receipts, not source records; it is outside the business backup/restore allowlist.
 - Pre-change backup completed at 02:27:51 on 21/10/2026 (Vietnam), run `113df85b-cda4-41d7-bb23-765c45d49073`; [Google Sheets](https://docs.google.com/spreadsheets/d/1_CSP6C184IAIqnIUwUrd8U9YdnOxUegn8VQLdWAMUqI/edit).
 - Validation: build, 10 Node tests, database rollback tests for complete rollback, same-request retry, changed-payload rejection, clean-visit confirmation, optimistic hygiene conflicts, per-visit logging, and editor/viewer/outsider/anonymous roles. Existing shared-project advisor findings remain outside this change; no new bulk-entry finding.
+
+### Bulk UX correction — 21 October 2026
+
+The initial bulk UI was rejected by the owner as confusing. Screenshots showed its sticky footer covering checkboxes, oversized task cards, simultaneous input panels, and separate scrolling lists. This is not an approved UI baseline.
+
+The revised flow presents one task at a time: stores → shared content → editable review. Store choices use 12-item pages with a selection count retained across filters/pages; “select all filtered” still selects the entire filtered set. The action row is in normal document flow, below the content, with no sticky/fixed positioning or overlay. Error choices scroll with the document. Review starts collapsed and shows only selected errors when expanded, with a compact add-error selector. No database or permission changes.
