@@ -28,3 +28,17 @@ export async function removeAuditEntry({inspectionId,violationId=null,reason,exp
  const {data,error}=await supabase.rpc('audit_remove_entry',{p_inspection:inspectionId,p_violation:violationId,p_reason:reason,p_expected_issues:expectedIssues});
  if(error)throw error;return data;
 }
+
+export async function loadAuditActivity({from='',to='',kind='',actor='',page=0}={}){
+ let q=supabase.from('audit_activity_log').select('*')
+  .in('entity',['audit_inspections','audit_violations','audit_hygiene','audit_error_types'])
+  .order('created_at',{ascending:false}).order('id',{ascending:false});
+ if(from)q=q.gte('created_at',from+'T00:00:00+07:00');
+ if(to){const day=new Date(to+'T00:00:00+07:00');day.setUTCDate(day.getUTCDate()+1);q=q.lt('created_at',day.toISOString());}
+ if(kind==='add')q=q.eq('action','INSERT');
+ if(kind==='delete')q=q.in('action',['REMOVE_INSPECTION','REMOVE_VIOLATION']);
+ if(kind==='update')q=q.eq('action','UPDATE');
+ if(actor.trim())q=q.ilike('actor_email','%'+actor.trim()+'%');
+ const {data,error}=await q.range(page*50,page*50+50);if(error)throw error;
+ return {rows:data.slice(0,50),hasMore:data.length>50};
+}
