@@ -19,6 +19,7 @@ export const websiteApi={
  async history(page=0,filters={}){return result(historyQuery(supabase.from('website_activity').select('*'),filters).order('created_at',{ascending:false}).order('id',{ascending:false}).range(page*30,page*30+30));},
  async members(){return result(supabase.from('feedback_app_members').select('email').order('email'));},
  async access(){return result(supabase.from('feedback_module_access').select('email,role').eq('module','website'));},
+ async permissions(){return result(supabase.from('feedback_module_access').select('email,module,role').order('email'));},
  async addMember(email){return result(supabase.from('feedback_app_members').upsert({email},{onConflict:'email',ignoreDuplicates:true}));},
  async grant(email,role){return result(role==='none'?supabase.from('feedback_module_access').delete().eq('email',email).eq('module','website'):supabase.from('feedback_module_access').upsert({email,module:'website',role},{onConflict:'email,module'}));},
 };
