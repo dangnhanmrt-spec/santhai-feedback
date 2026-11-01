@@ -7,10 +7,10 @@ import './website.css';
 const OWNER='dangnhan.mrt@gmail.com';
 const date=t=>new Date(t).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'});
 function Notice({error,children}){return children?<div className={'audit-message '+(error?'error':'success')} role={error?'alert':'status'}>{children}</div>:null;}
-function Dialog({title,onClose,children,busy=false}){
+function Dialog({title,onClose,children,busy=false,className=''}){
  const ref=useRef(null),close=useRef(onClose);close.current=onClose;
  useEffect(()=>{const previous=document.activeElement;const node=ref.current;node.showModal();const onCancel=e=>{e.preventDefault();close.current();};node.addEventListener('cancel',onCancel);const overflow=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{node.removeEventListener('cancel',onCancel);node.close();document.body.style.overflow=overflow;previous?.focus();};},[]);
- return <dialog ref={ref} className="wa-dialog audit-app" aria-labelledby="wa-dialog-title" onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose();}}><div className="wa-dialog-heading"><h2 id="wa-dialog-title">{title}</h2><button type="button" className="wa-close" aria-label="Đóng" disabled={busy} onClick={onClose}>×</button></div>{children}</dialog>;
+ return <dialog ref={ref} className={'wa-dialog audit-app '+className} aria-labelledby="wa-dialog-title" onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose();}}><div className="wa-dialog-heading"><h2 id="wa-dialog-title">{title}</h2><button type="button" className="wa-close" aria-label="Đóng" disabled={busy} onClick={onClose}>×</button></div>{children}</dialog>;
 }
 export default function WebsiteApp({user,role,onSignOut,internalStores=[],api=websiteApi}){
  const [tab,setTab]=useState('stores'),[rows,setRows]=useState([]),[menus,setMenus]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState('');
@@ -57,13 +57,72 @@ function StoreForm({row,rows,internalStores,editable,api,onSaved,onClose}){
  useEffect(()=>{if(!dirty)return;const guard=e=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard);},[dirty]);
  async function save(e){e.preventDefault();setError('');try{const data=validateStore(d);setBusy(true);const saved=await api.saveStore(row,data,internalId);await onSaved(saved);}catch(e){setError(e.message);}finally{setBusy(false);}}
  const available=internalStores.filter(s=>s.id===internalId||!rows.some(r=>r.internal_store_id===s.id));
- return <Dialog title={row.id?(editable?'Chỉnh sửa cửa hàng':'Chi tiết cửa hàng'):'Thêm cửa hàng'} busy={busy} onClose={close}><form onSubmit={save}><div className="wa-dialog-body"><Notice error>{error}</Notice><fieldset disabled={!editable||busy}>
-  <section className="wa-form-section"><h3>Thông tin cửa hàng</h3><div className="wa-form-grid"><label>Tên hiển thị *<input required maxLength={120} autoFocus value={d.name} onChange={e=>set('name',e.target.value)}/></label><label>Khu vực *<select required value={d.region} onChange={e=>{set('region',e.target.value);set('menu_group',['ĐÀ NẴNG','THÀNH PHỐ HUẾ'].includes(e.target.value)?'central':'other');}}><option value="">Chọn khu vực</option>{[...new Set([...REGIONS,d.region].filter(Boolean))].map(r=><option key={r}>{r}</option>)}</select></label><label className="wa-full">Địa chỉ *<textarea required maxLength={500} value={d.address} onChange={e=>set('address',e.target.value)}/></label><label className="wa-full">Liên kết với cửa hàng nội bộ<select value={internalId} onChange={e=>setInternalId(e.target.value)}><option value="">Hồ sơ website riêng</option>{!available.some(s=>s.id===internalId)&&internalId&&<option value={internalId}>{internalId}</option>}{available.map(s=><option key={s.id} value={s.id}>{s.name} - {s.id}</option>)}</select><span className="audit-muted">Dùng để đối chiếu mã cửa hàng. Tên và trạng thái nội bộ được quản lý riêng.</span></label></div></section>
-  <section className="wa-form-section"><h3>Vị trí và chỉ đường</h3><div className="wa-form-grid"><label className="wa-full">Link Google Maps *<input type="url" required value={d.maps_url} maxLength={2000} onChange={e=>set('maps_url',e.target.value)}/></label><label className="wa-full">Plus Code<input value={d.plus_code} maxLength={200} placeholder="Ví dụ: 2QQM+GC Ninh Kiều, Cần Thơ" onChange={e=>set('plus_code',e.target.value)}/><span className="audit-muted">Ưu tiên Plus Code để tìm cửa hàng gần nhất. Khi để trống, hệ thống dùng tọa độ bên dưới.</span></label><label>Vĩ độ *<input type="number" step="any" required min="8" max="24" value={d.lat} onChange={e=>set('lat',e.target.value)}/></label><label>Kinh độ *<input type="number" step="any" required min="100" max="115" value={d.lng} onChange={e=>set('lng',e.target.value)}/></label></div></section>
-  <section className="wa-form-section"><h3>Phương thức đặt đơn</h3><div className="wa-choice-grid"><label className="audit-checkbox"><input type="checkbox" checked={d.delivery} onChange={e=>set('delivery',e.target.checked)}/>Giao tận nơi</label><label className="audit-checkbox"><input type="checkbox" checked={d.pickup} onChange={e=>set('pickup',e.target.checked)}/>Đặt trước, ghé lấy</label></div><p className="audit-muted">Mua tại cửa hàng luôn có sẵn. Đơn Zalo dùng tài khoản SanThai chung.</p><label>Hotline riêng của cửa hàng<input type="tel" maxLength={32} placeholder="Để trống nếu không có" value={d.phone} onChange={e=>set('phone',e.target.value)}/><span className="audit-muted">Số này sẽ hiển thị công khai, kèm nút gọi cửa hàng.</span></label></section>
-  <section className="wa-form-section"><div className="wa-name-row"><h3>App giao hàng</h3>{editable&&<button type="button" className="audit-btn" disabled={d.apps.length>=12} onClick={()=>set('apps',[...d.apps,{name:'',note:''}])}>+ Thêm app</button>}</div><div className="audit-muted">Hiển thị sau các phương thức khác. Có thể bổ sung app và ghi chú riêng.</div>{d.apps.map((a,i)=><div className="wa-app-row" key={i}><label>Tên app<input required maxLength={60} list="wa-app-names" value={a.name} onChange={e=>set('apps',d.apps.map((x,j)=>j===i?{...x,name:e.target.value}:x))}/></label><label>Ghi chú<input maxLength={300} placeholder="Ví dụ: Không nhận đơn sau 19:30" value={a.note} onChange={e=>set('apps',d.apps.map((x,j)=>j===i?{...x,note:e.target.value}:x))}/></label>{editable&&<button type="button" className="wa-close" aria-label={'Xóa app '+(a.name||i+1)} onClick={()=>set('apps',d.apps.filter((_,j)=>j!==i))}>×</button>}</div>)}<datalist id="wa-app-names">{['SHIPPING','ShopeeFood','GrabFood','VILL','247','HOẢ TỐC 247','GODI'].map(n=><option key={n} value={n}/>)}</datalist></section>
-  <section className="wa-form-section"><h3>Menu và hiển thị</h3><label>Menu áp dụng<select value={d.menu_group} onChange={e=>set('menu_group',e.target.value)}>{Object.entries(MENU_GROUPS).map(([id,n])=><option key={id} value={id}>{n}</option>)}</select></label><label className="audit-checkbox wa-visible"><input type="checkbox" checked={d.visible} onChange={e=>set('visible',e.target.checked)}/>Hiển thị cửa hàng trên website</label><div className="wa-preview"><div className="wa-preview-title"><h3>Tóm tắt nội dung công khai</h3><span className={'audit-pill '+(d.visible?'good':'wa-neutral')}>{d.visible?'Sẽ hiển thị trên website':'Đang ẩn'}</span></div><strong>{d.name||'Tên cửa hàng'}</strong><span>{d.address||'Địa chỉ cửa hàng'}</span><div className="wa-methods"><span>Mua tại cửa hàng</span>{d.delivery&&<span>Giao tận nơi</span>}{d.pickup&&<span>Đặt trước, ghé lấy</span>}</div>{d.phone&&<div className="wa-preview-contact"><span>Hotline cửa hàng</span><strong>{d.phone}</strong></div>}<div className="wa-preview-contact"><span>Menu áp dụng</span><strong>{MENU_GROUPS[d.menu_group]}</strong></div>{d.apps.length>0&&<div className="wa-preview-apps"><span className="wa-preview-apps-label">App giao hàng</span>{d.apps.map((a,i)=><div key={i}><strong>{a.name||'Chưa nhập tên app'}</strong>{a.note&&<span>{a.note}</span>}</div>)}</div>}<span className="audit-muted">Xem menu & đặt đơn · Đây là bản tóm tắt thông tin, chưa mô phỏng bố cục website khách.</span></div></section>
- </fieldset></div><footer className="wa-footer"><span className="audit-muted">{editable?'Lưu sẽ cập nhật nội dung trên website.':'Chế độ chỉ xem'}</span><button type="button" className="audit-btn" disabled={busy} onClick={close}>{editable?'Hủy':'Đóng'}</button>{editable&&<button className="audit-btn primary" disabled={busy||!dirty}>{busy?'Đang lưu...':'Lưu thay đổi'}</button>}</footer></form></Dialog>;
+ return <Dialog className="wa-store-dialog" title={row.id?(editable?'Chỉnh sửa cửa hàng':'Chi tiết cửa hàng'):'Thêm cửa hàng'} busy={busy} onClose={close}>
+  <form className="wa-store-form" onSubmit={save}>
+   <div className="wa-store-layout">
+    <div className="wa-store-fields">
+     <Notice error>{error}</Notice>
+     <fieldset disabled={!editable||busy}>
+      <section className="wa-editor-section" aria-labelledby="wa-public-info">
+       <h3 id="wa-public-info">Thông tin công khai</h3>
+       <div className="wa-form-grid">
+        <label>Tên hiển thị *<input required maxLength={120} autoFocus value={d.name} onChange={e=>set('name',e.target.value)}/></label>
+        <label>Khu vực *<select required value={d.region} onChange={e=>{set('region',e.target.value);set('menu_group',['ĐÀ NẴNG','THÀNH PHỐ HUẾ'].includes(e.target.value)?'central':'other');}}><option value="">Chọn khu vực</option>{[...new Set([...REGIONS,d.region].filter(Boolean))].map(r=><option key={r}>{r}</option>)}</select></label>
+        <label className="wa-full">Địa chỉ *<textarea rows={2} required maxLength={500} value={d.address} onChange={e=>set('address',e.target.value)}/></label>
+       </div>
+      </section>
+      <section className="wa-editor-section" aria-labelledby="wa-order-info">
+       <h3 id="wa-order-info">Đặt đơn và liên hệ</h3>
+       <div className="wa-choice-grid">
+        <label className="audit-checkbox wa-order-choice"><input type="checkbox" checked={d.delivery} onChange={e=>set('delivery',e.target.checked)}/>Giao tận nơi</label>
+        <label className="audit-checkbox wa-order-choice"><input type="checkbox" checked={d.pickup} onChange={e=>set('pickup',e.target.checked)}/>Đặt trước, ghé lấy</label>
+       </div>
+       <p className="audit-muted wa-order-hint">Mua tại cửa hàng luôn có sẵn. Zalo dùng tài khoản SanThai chung.</p>
+       <div className="wa-form-grid">
+        <label>Hotline riêng<input type="tel" maxLength={32} placeholder="Để trống nếu không có" value={d.phone} onChange={e=>set('phone',e.target.value)}/><span className="audit-muted">Hiển thị công khai cùng nút gọi cửa hàng.</span></label>
+        <label>Menu áp dụng<select value={d.menu_group} onChange={e=>set('menu_group',e.target.value)}>{Object.entries(MENU_GROUPS).map(([id,n])=><option key={id} value={id}>{n}</option>)}</select></label>
+       </div>
+       <label className="audit-checkbox wa-publish-choice"><input type="checkbox" checked={d.visible} onChange={e=>set('visible',e.target.checked)}/>Hiển thị cửa hàng trên website</label>
+      </section>
+      <section className="wa-editor-section" aria-labelledby="wa-app-info">
+       <div className="wa-name-row"><h3 id="wa-app-info">App giao hàng</h3>{editable&&<button type="button" className="audit-btn" disabled={d.apps.length>=12} onClick={()=>set('apps',[...d.apps,{name:'',note:''}])}>+ Thêm app</button>}</div>
+       <p className="audit-muted wa-section-hint">Hiển thị sau các phương thức đặt đơn khác.</p>
+       {!d.apps.length&&<p className="audit-muted">Chưa có app giao hàng.</p>}
+       {d.apps.map((a,i)=><div className="wa-app-row" key={i}>
+        <label>Tên app<input required maxLength={60} list="wa-app-names" value={a.name} onChange={e=>set('apps',d.apps.map((x,j)=>j===i?{...x,name:e.target.value}:x))}/></label>
+        <label>Ghi chú<input maxLength={300} placeholder="Ví dụ: Không nhận đơn sau 19:30" value={a.note} onChange={e=>set('apps',d.apps.map((x,j)=>j===i?{...x,note:e.target.value}:x))}/></label>
+        {editable&&<button type="button" className="wa-close" aria-label={'Xóa app '+(a.name||i+1)} onClick={()=>set('apps',d.apps.filter((_,j)=>j!==i))}>×</button>}
+       </div>)}
+       <datalist id="wa-app-names">{['SHIPPING','ShopeeFood','GrabFood','VILL','247','HOẢ TỐC 247','GODI'].map(n=><option key={n} value={n}/>)}</datalist>
+      </section>
+      <section className="wa-editor-section" aria-labelledby="wa-location-info">
+       <h3 id="wa-location-info">Vị trí và liên kết</h3>
+       <div className="wa-form-grid">
+        <label className="wa-full">Link Google Maps *<input type="url" required value={d.maps_url} maxLength={2000} onChange={e=>set('maps_url',e.target.value)}/></label>
+        <label className="wa-full">Plus Code<input value={d.plus_code} maxLength={200} placeholder="Ví dụ: 2QQM+GC Ninh Kiều, Cần Thơ" onChange={e=>set('plus_code',e.target.value)}/><span className="audit-muted">Ưu tiên Plus Code để tìm cửa hàng gần nhất; để trống sẽ dùng tọa độ.</span></label>
+        <label>Vĩ độ *<input type="number" step="any" required min="8" max="24" value={d.lat} onChange={e=>set('lat',e.target.value)}/></label>
+        <label>Kinh độ *<input type="number" step="any" required min="100" max="115" value={d.lng} onChange={e=>set('lng',e.target.value)}/></label>
+        <label className="wa-full wa-internal-link">Liên kết cửa hàng nội bộ<select value={internalId} onChange={e=>setInternalId(e.target.value)}><option value="">Hồ sơ website riêng</option>{!available.some(s=>s.id===internalId)&&internalId&&<option value={internalId}>{internalId}</option>}{available.map(s=><option key={s.id} value={s.id}>{s.name} - {s.id}</option>)}</select><span className="audit-muted">Chỉ để đối chiếu mã. Tên và trạng thái nội bộ được quản lý riêng.</span></label>
+       </div>
+      </section>
+     </fieldset>
+    </div>
+    <aside className="wa-store-sidebar" aria-labelledby="wa-store-preview-title">
+     <div className="wa-preview">
+      <div className="wa-preview-title"><h3 id="wa-store-preview-title">Tóm tắt công khai</h3><span className={'audit-pill '+(d.visible?'good':'wa-neutral')}>{d.visible?'Sẽ hiển thị':'Đang ẩn'}</span></div>
+      <strong>{d.name||'Tên cửa hàng'}</strong>
+      <span className="wa-preview-address">{d.address||'Địa chỉ cửa hàng'}</span>
+      <div className="wa-methods"><span>Mua tại cửa hàng</span>{d.delivery&&<span>Giao tận nơi</span>}{d.pickup&&<span>Đặt trước, ghé lấy</span>}</div>
+      {d.phone&&<div className="wa-preview-contact"><span>Hotline cửa hàng</span><strong>{d.phone}</strong></div>}
+      <div className="wa-preview-contact"><span>Menu áp dụng</span><strong>{MENU_GROUPS[d.menu_group]}</strong></div>
+      {d.apps.length>0&&<div className="wa-preview-apps"><span className="wa-preview-apps-label">App giao hàng</span>{d.apps.map((a,i)=><div key={i}><strong>{a.name||'Chưa nhập tên app'}</strong>{a.note&&<span>{a.note}</span>}</div>)}</div>}
+      <span className="audit-muted wa-preview-caption">Tóm tắt nội dung của “Xem menu & đặt đơn”. Bố cục website khách được giữ riêng.</span>
+     </div>
+    </aside>
+   </div>
+   <footer className="wa-footer"><span className="audit-muted" role="status">{editable?(dirty?'Có thay đổi chưa lưu. Lưu sẽ cập nhật website.':'Chưa có thay đổi.'):'Chế độ chỉ xem'}</span><button type="button" className="audit-btn" disabled={busy} onClick={close}>{editable?'Hủy':'Đóng'}</button>{editable&&<button className="audit-btn primary" disabled={busy||!dirty}>{busy?'Đang lưu...':'Lưu thay đổi'}</button>}</footer>
+  </form>
+ </Dialog>;
 }
 function MenuManager({rows,menus,loading,editable,api,onSaved}){
  const [editing,setEditing]=useState(null);

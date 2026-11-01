@@ -61,3 +61,44 @@
 .wa-store-toolbar.is-stuck + .wa-directory thead{box-shadow:0 8px 14px -9px #000b}
 @media(max-width:1000px){.wa-app .wa-store-toolbar .audit-filters{grid-template-columns:minmax(180px,1fr) 150px 155px;gap:10px}.wa-app .wa-store-toolbar .audit-filter-summary{min-width:110px}.wa-store-table td,.wa-store-table th{padding:10px!important}.wa-row-actions .audit-btn{padding:5px 9px}.wa-updated{font-size:10px}}
 @media(max-width:700px){.wa-app .wa-store-toolbar{grid-template-columns:minmax(0,1fr)}.wa-app .wa-store-toolbar .audit-filters{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px 12px 6px;gap:8px}.wa-app .wa-store-toolbar .audit-search{grid-column:1/-1}.wa-app .wa-store-toolbar .audit-filter-summary{flex-direction:row;justify-content:space-between;align-items:center;min-width:0;padding:2px 12px 8px;border-left:0}.wa-app .wa-directory{overflow:auto}.wa-directory .wa-store-table{min-width:900px}.wa-app .wa-directory thead{top:0}}
+
+/* Store editor: stable header/footer, independently scrolling fields and summary. */
+.wa-store-dialog.audit-app{width:min(1180px,calc(100% - 48px));height:min(860px,calc(100dvh - 48px));max-height:calc(100dvh - 48px);overflow:hidden}
+.wa-store-dialog[open]{display:flex;flex-direction:column}
+.wa-store-dialog .wa-dialog-heading{position:static;flex-shrink:0;padding:14px 22px;background:#192a40}
+.wa-store-form{display:flex;flex-direction:column;flex:1;min-height:0}
+.wa-store-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;flex:1;min-height:0;overflow:hidden}
+.wa-store-fields{min-width:0;overflow:auto;padding:20px;scroll-padding-block:14px;scrollbar-color:#526b88 #111d2e}
+.wa-store-fields input,.wa-store-fields select,.wa-store-fields textarea,.wa-store-fields button{scroll-margin-block:14px}
+.wa-store-fields .wa-form-grid{gap:14px 16px}
+.wa-store-fields label{font-size:13px;color:#c4d5e6;gap:5px}
+.wa-store-fields input,.wa-store-fields select,.wa-store-fields textarea{background:#0d1b2d;border-color:#455e79;font-size:14px;min-height:40px}
+.wa-store-fields textarea{min-height:70px;resize:vertical}
+.wa-editor-section{padding:18px;margin:0 0 16px;border:1px solid #304761;border-radius:10px;background:#142237}
+.wa-editor-section:last-child{margin-bottom:0}
+.wa-editor-section h3{margin:0 0 15px;font-size:15px;font-weight:600;color:#e5effa}
+.wa-editor-section .wa-name-row h3{margin:0}
+.wa-store-fields .audit-muted{font-size:12px;color:#afc4d9;line-height:1.6}
+.wa-store-fields .wa-order-choice{padding:10px 12px;border:1px solid #3c5874;border-radius:7px;background:#102033;min-height:42px}
+.wa-order-hint{margin:10px 0 16px}.wa-section-hint{margin:8px 0 14px}
+.wa-store-fields .wa-publish-choice{margin-top:16px;padding-top:14px;border-top:1px solid #304761}
+.wa-store-fields .wa-app-row{grid-template-columns:minmax(120px,1fr) minmax(150px,1.5fr) 32px;gap:10px;margin-top:12px}
+.wa-store-fields .wa-app-row .wa-close{min-width:32px;min-height:40px;font-size:22px!important}
+.wa-store-fields .wa-internal-link{padding-top:15px;border-top:1px solid #304761}
+.wa-store-sidebar{min-width:0;overflow:auto;padding:22px 20px;background:#0d192a;border-left:1px solid #344b65;scrollbar-color:#526b88 #0d192a}
+.wa-store-sidebar .wa-preview{padding:0;background:transparent;border:0;border-radius:0;gap:16px;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.wa-store-sidebar .wa-preview-title{align-items:flex-start;gap:10px}
+.wa-store-sidebar .wa-preview-title h3{font-size:14px;line-height:1.6;color:#b5d8f0}
+.wa-store-sidebar .wa-preview-title .audit-pill{font-size:11px}
+.wa-store-sidebar .wa-preview>strong{font-size:18px;line-height:1.5;color:#edf4fc}
+.wa-preview-address{color:#c0cede}
+.wa-store-sidebar .wa-preview-contact{display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding-top:14px;border-top:1px solid #2b3e55}
+.wa-store-sidebar .wa-preview-contact>span,.wa-store-sidebar .wa-preview-apps-label{font-size:12px;color:#9fb6ce}
+.wa-store-sidebar .wa-preview-apps{border-color:#2b3e55;padding-top:14px}
+.wa-store-sidebar .wa-preview-apps>div{display:flex;flex-direction:column;gap:3px;margin-top:10px}
+.wa-store-sidebar .wa-preview-apps strong{min-width:0}
+.wa-store-sidebar .wa-preview-caption{font-size:12px;line-height:1.7;padding-top:14px;border-top:1px solid #2b3e55;color:#9fb6ce}
+.wa-store-form>.wa-footer{position:static;flex-shrink:0;padding:14px 22px;background:#192a40}
+.wa-store-form>.wa-footer>.audit-muted{max-width:none;font-size:12px}
+@media(max-width:959px){.wa-store-layout{grid-template-columns:minmax(0,1fr);overflow:auto;scroll-padding-block:14px}.wa-store-fields,.wa-store-sidebar{overflow:visible}.wa-store-sidebar{border-left:0;border-top:1px solid #344b65}.wa-store-dialog.audit-app{width:calc(100% - 32px);height:calc(100dvh - 32px);max-height:calc(100dvh - 32px)}}
+@media(max-width:700px){.wa-store-dialog.audit-app{width:calc(100% - 16px);height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)}.wa-store-dialog .wa-dialog-heading{padding:12px 16px}.wa-store-fields{padding:14px}.wa-editor-section{padding:14px}.wa-store-fields .wa-app-row{grid-template-columns:minmax(0,1fr) 32px}.wa-store-fields input,.wa-store-fields select,.wa-store-fields textarea{font-size:16px}.wa-store-sidebar{padding:18px}.wa-store-form>.wa-footer{padding:12px 16px}}
