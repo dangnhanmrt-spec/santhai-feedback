@@ -18,6 +18,13 @@ Module quản trị trong SanThai Feedback, dùng chung đăng nhập Google nh�
 
 ## Dữ liệu và kiểm soát
 
+### Giao diện quản trị desktop
+
+- Danh sách hồ sơ dùng bảng với tên/địa chỉ, khu vực, phương thức/hotline/ghi chú app, nhóm menu, trạng thái và thao tác. Đầu bảng giữ lại trong vùng cuộn; bấm tên hoặc Chỉnh sửa để mở hồ sơ.
+- Tóm tắt trong form hiện hotline và từng app kèm ghi chú, nhóm menu và trạng thái. Đây là đối chiếu nội dung, không mô phỏng bố cục website khách.
+- Lịch sử có bộ lọc loại nội dung, cửa hàng/nhóm menu, người sửa và khoảng ngày Việt Nam. Bộ lọc áp dụng trước phân trang trên toàn bộ lịch sử theo quyền hiện có. Xem thay đổi mở trước/sau; ảnh menu có thumbnail và liên kết ảnh gốc.
+- Thay đổi giao diện chỉ nằm trong `src/website`. Không đổi CSS dùng chung, dữ liệu/schema/RLS hoặc các hàm ghi hồ sơ/menu/phân quyền. Khi nhân sự bấm lưu hồ sơ/menu, website khách vẫn cập nhật theo cơ chế hiện hành.
+
 - `website_store_profiles`: hồ sơ công khai, mã nội bộ tùy chọn, phiên bản và thời điểm cập nhật.
 - `website_menus`: danh sách ảnh theo nhóm, phiên bản và thời điểm cập nhật.
 - `website_activity`: lịch sử nguyên tử trước/sau, người sửa lấy từ JWT xác thực. Trình duyệt không được ghi hoặc xóa lịch sử.

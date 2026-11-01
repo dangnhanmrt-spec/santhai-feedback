@@ -18,3 +18,14 @@ export function changes(row){
  return Object.entries(FIELD_LABELS).filter(([key])=>JSON.stringify(before[key])!==JSON.stringify(after[key])).map(([key,label])=>({key,label,before:before[key],after:after[key]}));
 }
 export function displayValue(value,key){if(value===undefined||value===null||value==='')return 'Chưa có';if(typeof value==='boolean')return value?'Có':'Không';if(key==='menu_group')return MENU_GROUPS[value]||value;if(Array.isArray(value))return value.map(a=>a.name?(a.name+(a.note?' - '+a.note:'')):a.alt||a.src).join('; ')||'Không có';return String(value);}
+
+// Filter the complete journal before pagination. Calendar dates are Vietnam dates.
+export function historyQuery(request,filters={}){
+ let query=request;
+ if(filters.entity)query=query.eq('entity',filters.entity);
+ if(filters.entityId)query=query.eq('entity_id',filters.entityId);
+ if(filters.actor?.trim())query=query.ilike('actor_email','%'+filters.actor.trim().replace(/[\\%_]/g,'\\$&')+'%');
+ if(filters.from)query=query.gte('created_at',filters.from+'T00:00:00+07:00');
+ if(filters.to){const end=new Date(filters.to+'T00:00:00+07:00');end.setUTCDate(end.getUTCDate()+1);query=query.lt('created_at',end.toISOString());}
+ return query;
+}
