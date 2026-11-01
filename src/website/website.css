@@ -1,7 +1,7 @@
 /* Website-only presentation. Do not broaden these selectors to shared Audit styles. */
 .wa-app,.wa-dialog.audit-app{font-family:Lexend,Arial,sans-serif;--audit-muted:#afc0d2}
 body:has(.wa-app){margin:0}
-.wa-app{--wa-gutter:16px;box-sizing:border-box;max-width:none;width:100%;margin:0;padding:0 var(--wa-gutter) 48px}
+.wa-app.audit-app{--wa-gutter:16px;box-sizing:border-box;max-width:none;width:100%;margin:0;padding:0 var(--wa-gutter) 48px}
 .wa-app .audit-header{margin-left:calc(0px - var(--wa-gutter));margin-right:calc(0px - var(--wa-gutter));padding-left:var(--wa-gutter);padding-right:var(--wa-gutter)}
 .wa-app a{color:#7dd3fc}.wa-app a.audit-btn{color:#d5e1ee;text-decoration:none;display:inline-flex;align-items:center}
 .wa-app h1{font-size:21px}.wa-app .audit-header{margin-bottom:20px}.wa-app .audit-page-heading{margin-bottom:16px}
@@ -56,7 +56,7 @@ body:has(.wa-app){margin:0}
 .wa-app .wa-store-toolbar .audit-search input{background:#081b2c;border-color:#66aac8;box-shadow:inset 3px 0 #38bdf8}
 .wa-app .wa-store-toolbar input::placeholder{color:#a7c0d5;font-weight:400}
 .wa-app .wa-store-toolbar .audit-filter-summary{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:6px;min-width:132px;align-self:stretch;padding:10px var(--wa-gutter) 10px 14px;font-size:12px;font-weight:600;color:#d6f0fc;border-left:1px solid #50748f66;white-space:nowrap}
-.wa-app .wa-directory{width:calc(100% + var(--wa-gutter) + var(--wa-gutter));margin-left:calc(0px - var(--wa-gutter));margin-right:calc(0px - var(--wa-gutter));max-height:none;min-height:0;overflow:visible;border:0;border-radius:0}
+.wa-app .wa-directory{max-width:none;width:calc(100% + var(--wa-gutter) + var(--wa-gutter));margin-left:calc(0px - var(--wa-gutter));margin-right:calc(0px - var(--wa-gutter));max-height:none;min-height:0;overflow:visible;border:0;border-radius:0}
 .wa-directory .wa-store-table{min-width:0}
 .wa-app .wa-directory thead th{top:var(--wa-store-toolbar-height,84px);z-index:30;background:#1b2d46;color:#d9eafa;border-bottom:1px solid #526b87;box-shadow:0 2px 0 #070f1d;font-size:13px;font-weight:600}
 @media(max-width:1000px){.wa-app .wa-store-toolbar .audit-filters{grid-template-columns:minmax(180px,1fr) 150px 155px;gap:10px}.wa-app .wa-store-toolbar .audit-filter-summary{min-width:110px}.wa-store-table td,.wa-store-table th{padding:10px!important}.wa-row-actions .audit-btn{padding:5px 9px}.wa-updated{font-size:10px}}
