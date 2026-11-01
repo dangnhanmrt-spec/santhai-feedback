@@ -1,11 +1,11 @@
-import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {Fragment,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {supabase} from '../supabaseAuth.js';
 import {addDays,monday,percent,periodFor,summarize,vietnamDate} from './metrics.js';
 import {addType,allRows,loadAudit,saveHygiene,saveInspection,toggleType,removeAuditEntry,loadAuditActivity} from './api.js';
 import {describeActivity} from './activity.js';
 import './audit.css';
 import BulkEntry from './BulkEntry.jsx';
-import AccountPermissions from '../access/AccountPermissions.jsx';
+import AccountPermissions, {AccountPermissionDetail} from '../access/AccountPermissions.jsx';
 const STATUS={not_submitted:'Chưa gửi',pending:'Chờ kiểm tra',pass:'Đạt',fail:'Không đạt',unavailable:'Không kiểm tra được'};
 const DATE=d=>d?.split('-').reverse().join('/');
 const TIME=d=>new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit'}).format(new Date(d));
@@ -125,15 +125,16 @@ function TypeManager({categories,onChange}){
  return <section className="audit-panel"><h2>Danh mục nội dung vi phạm</h2><div className="audit-muted">Thêm loại lỗi mới để nhân sự chọn khi nhập. Ngừng sử dụng vẫn giữ toàn bộ lịch sử.</div><form className="audit-inline" style={{margin:'16px 0'}} onSubmit={e=>{e.preventDefault();if(name.trim())run(async()=>{await addType(name);setName('');});}}><input required aria-label="Tên loại vi phạm mới" placeholder="Tên loại vi phạm mới" value={name} onChange={e=>setName(e.target.value)} style={{flex:1,minWidth:200}}/><button className="audit-btn primary" disabled={busy}>Thêm loại vi phạm</button></form><ErrorMessage error={error}/>{categories.map(c=><div className="audit-detail audit-split" key={c.id}><div>{c.name}<div className="audit-muted">{c.active?'Đang sử dụng':'Đã ngừng sử dụng'}</div></div><button className="audit-btn" disabled={busy} onClick={()=>run(()=>toggleType(c.id,!c.active))}>{c.active?'Ngừng sử dụng':'Dùng lại'}</button></div>)}</section>;
 }
 export function AccessManager({user,module='audit'}){
- const [rows,setRows]=useState([]);const [members,setMembers]=useState([]);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);const owner=user.email==='dangnhan.mrt@gmail.com';
+ const [expanded,setExpanded]=useState('');const [rows,setRows]=useState([]);const [members,setMembers]=useState([]);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);const owner=user.email==='dangnhan.mrt@gmail.com';
  const refresh=useCallback(async()=>{setLoading(true);setError('');try{const [m,a]=await Promise.all([allRows('feedback_app_members','*',q=>q.order('email')),allRows('feedback_module_access','*',q=>q.order('email'))]);setMembers(m);setRows(a);}catch(e){setError(e.message);}finally{setLoading(false);}},[]);
  useEffect(()=>{refresh();},[refresh]);
  async function setRole(email,role){setError('');setBusy(true);try{if(role==='none'){const {error}=await supabase.from('feedback_module_access').delete().eq('email',email).eq('module',module);if(error)throw error;}else{const {error}=await supabase.from('feedback_module_access').upsert({email,module,role},{onConflict:'email,module'});if(error)throw error;}await refresh();}catch(e){setError(e.message);}finally{setBusy(false);}}
  return <section className="audit-panel"><h2>Quyền {module==='audit'?'Audit nội bộ':'Feedback khách hàng'}</h2>
   <div className="audit-muted">Đổi quyền của bộ phận hiện tại ở cột giữa. Mở Quyền chi tiết để xem các chức năng tương ứng của từng tài khoản.</div><ErrorMessage error={error}/>
-  {loading?<div className="access-loading" role="status">Đang tải phân quyền...</div>:!error&&<div className="audit-scroll" style={{marginTop:15}}><table className="audit-table access-table"><thead><tr><th>Tài khoản</th><th>Quyền {module==='audit'?'Audit':'Feedback'}</th><th>Quyền chi tiết</th></tr></thead><tbody>{members.map(m=>{
+  {loading?<div className="access-loading" role="status">Đang tải phân quyền...</div>:!error&&<div className="audit-scroll" style={{marginTop:15}}><table className="audit-table access-table"><thead><tr><th>Tài khoản</th><th>Quyền {module==='audit'?'Audit':'Feedback'}</th><th>Quyền chi tiết</th></tr></thead><tbody>{members.map((m,index)=>{
    const role=rows.find(r=>r.email===m.email&&r.module===module)?.role||'none';
-   return <tr key={m.email}><td className="access-account">{m.email}{m.email===user.email&&<span className="access-account-note">Tài khoản của anh</span>}</td><td><select aria-label={'Quyền '+module+' của '+m.email} disabled={busy||m.email==='dangnhan.mrt@gmail.com'||(module==='feedback'&&!owner)} value={role} onChange={e=>setRole(m.email,e.target.value)}><option value="none">Không truy cập</option><option value="viewer">Chỉ xem</option>{module==='audit'&&<option value="editor">Nhập liệu</option>}<option value="admin">Admin</option></select></td><td><AccountPermissions email={m.email} rows={rows}/></td></tr>;
+   const detailsId='access-'+module+'-'+index;
+   return <Fragment key={m.email}><tr><td className="access-account">{m.email}{m.email===user.email&&<span className="access-account-note">Tài khoản của anh</span>}</td><td><select aria-label={'Quyền '+module+' của '+m.email} disabled={busy||m.email==='dangnhan.mrt@gmail.com'||(module==='feedback'&&!owner)} value={role} onChange={e=>setRole(m.email,e.target.value)}><option value="none">Không truy cập</option><option value="viewer">Chỉ xem</option>{module==='audit'&&<option value="editor">Nhập liệu</option>}<option value="admin">Admin</option></select></td><td><AccountPermissions email={m.email} rows={rows} detailsId={detailsId} expanded={expanded===m.email} onToggle={()=>setExpanded(expanded===m.email?'':m.email)}/></td></tr>{expanded===m.email&&<tr className="access-expanded-row"><td colSpan="3"><AccountPermissionDetail id={detailsId} email={m.email} rows={rows}/></td></tr>}</Fragment>;
   })}</tbody></table></div>}
  </section>;
 }

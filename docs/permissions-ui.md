@@ -1,6 +1,6 @@
 # Hiển thị quyền chi tiết
 
-Các màn phân quyền Feedback, Audit và Website dùng chung `src/access/AccountPermissions.jsx`. Cột thứ ba là Quyền chi tiết. Mỗi dòng tóm tắt ba bộ phận và cho mở phần mô tả theo đúng tài khoản, không suy quyền từ vai trò của tài khoản đang quản trị.
+Các màn phân quyền Feedback, Audit và Website dùng chung `src/access/AccountPermissions.jsx`. Cột thứ ba là Quyền chi tiết. Mỗi dòng tóm tắt ba bộ phận; khi mở, chi tiết nằm trong một hàng riêng trải hết chiều rộng bảng, chỉ mở một tài khoản mỗi lần. Nội dung theo đúng tài khoản, không suy quyền từ vai trò của tài khoản đang quản trị.
 
 Mẫu chi tiết thống nhất:
 
