@@ -1247,7 +1247,7 @@ function InputFeedback({ feedbacks, stores, onSave, onDelete, user, userRole }) 
    ADMIN TAB
    ═══════════════════════════════════════════════════ */
 function AdminPanel({ user, stores, onStoresChanged }) {
-  return <><AccessManager user={user} module="feedback" /><StoreManager onStoresChanged={onStoresChanged} user={user} /></>;
+  return <><div className="audit-app" style={{ maxWidth: "none", margin: 0, padding: 0 }}><AccessManager user={user} module="feedback" /></div><StoreManager onStoresChanged={onStoresChanged} user={user} /></>;
 }
 
 /* ═══════════════════════════════════════════════════
