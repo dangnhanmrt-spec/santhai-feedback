@@ -5,7 +5,7 @@ export const hash=text=>createHash('sha256').update(text).digest('hex');
 export function safeEqual(a,b){if(typeof a!=='string'||typeof b!=='string')return false;const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
 export function validateSnapshot(data){
  if(data?.project_ref!=='stxymyjwxdtfxkvmsgmz'||![1,2].includes(data.format_version)||!data.tables?.feedbacks)throw new Error('Bản sao không thuộc hệ thống SanThai Feedback');
- const allowed=new Set(['feedbacks','stores','allowed_emails','audit_log_feedback','feedback_app_members','feedback_module_access','audit_stores','audit_error_types','audit_inspections','audit_violations','audit_hygiene','audit_activity_log','audit_import_batches','audit_import_cells','app_backup_runs']);
+ const allowed=new Set(['feedbacks','stores','allowed_emails','audit_log_feedback','feedback_app_members','feedback_module_access','audit_stores','audit_error_types','audit_inspections','audit_violations','audit_hygiene','audit_activity_log','audit_import_batches','audit_import_cells','app_backup_runs','website_store_profiles','website_menus','website_activity']);
  const counts={};for(const [name,rows] of Object.entries(data.tables)){if(!allowed.has(name)||!Array.isArray(rows)||rows.length>1000000)throw new Error('Bảng dữ liệu backup không hợp lệ');counts[name]=rows.length;const keys=new Set();for(const r of rows){if(!r||typeof r!=='object'||Array.isArray(r))throw new Error('Bản ghi backup không hợp lệ');const key=name==='feedback_module_access'?r.email+'|'+r.module:name==='allowed_emails'||name==='feedback_app_members'?r.email:name==='audit_import_cells'?r.source_key:r.id;if(!key||keys.has(key))throw new Error('ID thiếu hoặc trùng trong '+name);keys.add(key);}}
  return counts;
 }
@@ -43,3 +43,4 @@ export async function readArchive(run){
  const result=await bridge('read',{id:run.id,checksum:run.checksum});const raw=gunzipSync(Buffer.from(result.compressed,'base64'),{maxOutputLength:150*1024*1024}).toString('utf8');
  if(hash(raw)!==run.checksum)throw new Error('Checksum bản sao không khớp');const data=JSON.parse(raw);validateSnapshot(data);return data;
 }
+

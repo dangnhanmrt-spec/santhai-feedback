@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import WebsiteApp from "./website/WebsiteApp.jsx";
 import AuditApp, { AccessManager } from "./audit/AuditApp.jsx";
 import { loadMyAccess } from "./audit/api.js";
 import { BackupPanel, CompactOverview, ModuleSwitcher } from "./audit/Workspace.jsx";
@@ -1475,7 +1476,7 @@ export default function App() {
   const [user, setUser] = useState(undefined); // undefined=loading, null=not logged in
   const [userRole, setUserRole] = useState(null);
   const [access, setAccess] = useState({});
-  const [workspace, setWorkspace] = useState("feedback");
+  const [workspace, setWorkspace] = useState(() => ["feedback","audit","website","overview","backup"].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : "feedback");
   const [feedbacks, setFeedbacks] = useState([]);
   const [stores, setStores] = useState([]);
   const [tab, setTab] = useState("dashboard");
@@ -1502,14 +1503,14 @@ export default function App() {
 
         // Có user → check role
         const permissions = await loadMyAccess();
-        const role = permissions.feedback || (permissions.audit ? "audit_only" : null);
+        const role = permissions.feedback || (permissions.audit ? "audit_only" : permissions.website ? "website_only" : null);
         if (!mounted) return;
 
         // Set CẢ HAI cùng lúc để không flash màn AccessDenied
         setUser(u);
         setUserRole(role);
         setAccess(permissions);
-        if (!permissions.feedback && permissions.audit) setWorkspace("audit");
+        setWorkspace(current => current === "overview" || (current === "backup" && u.email === SUPER_ADMIN) || permissions[current] ? current : permissions.feedback ? "feedback" : permissions.audit ? "audit" : "website");
         if (role === null) setAuthError(`Email ${u.email} không có trong danh sách cho phép.`);
         setAuthChecking(false);
       } catch (err) {
@@ -1541,15 +1542,19 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!authChecking && userRole) window.history.replaceState(null, "", window.location.pathname + window.location.search + "#" + workspace);
+  }, [workspace, authChecking, userRole]);
+
   // Load feedbacks + stores
   useEffect(() => {
     if (!user || !userRole) return;
-    Promise.all([access.feedback ? loadFeedbacks() : Promise.resolve([]), loadStores()]).then(([fbs, sts]) => {
+    Promise.all([access.feedback ? loadFeedbacks() : Promise.resolve([]), (access.feedback || access.audit) ? loadStores() : Promise.resolve([])]).then(([fbs, sts]) => {
       setFeedbacks(fbs);
       setStores(sts);
       setDbStatus("supabase");
     });
-  }, [user, userRole, access.feedback]);
+  }, [user, userRole, access.feedback, access.audit]);
 
   const handleSave = useCallback(async (fb) => {
     const result = await saveFeedback(fb);
@@ -1585,9 +1590,12 @@ export default function App() {
   if (!userRole) return <AccessDenied user={user} authError={authError} onSignOut={signOut} />;
 
   const switcher = <ModuleSwitcher access={access} user={user} selected={workspace} onSelect={setWorkspace} />;
+  if (workspace === "website" && access.website) return <div style={S.app}>{switcher}<WebsiteApp user={user} role={access.website} onSignOut={signOut} internalStores={stores} /></div>;
   if (workspace === "audit" && access.audit) return <div style={S.app}>{switcher}<AuditApp stores={stores.map(enrichStore)} user={user} role={access.audit} onSignOut={signOut} /></div>;
   if (workspace === "overview") return <div style={S.app}>{switcher}<CompactOverview access={access} stores={stores.map(enrichStore)} feedbacks={feedbacks} onSelect={setWorkspace}/></div>;
   if (workspace === "backup" && user.email === SUPER_ADMIN) return <div style={S.app}>{switcher}<BackupPanel /></div>;
+
+  if (!access.feedback) return <div style={S.app}>{switcher}<CompactOverview access={access} stores={stores.map(enrichStore)} feedbacks={feedbacks} onSelect={setWorkspace}/></div>;
 
   const TABS = [
     { id: "dashboard", label: "📊 Dashboard" },
@@ -1651,3 +1659,4 @@ export default function App() {
     </div>
   );
 }
+
