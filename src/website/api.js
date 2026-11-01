@@ -1,4 +1,5 @@
 import {supabase} from '../supabaseAuth.js';
+import {historyQuery} from './model.js';
 async function result(request){const {data,error}=await request;if(error)throw new Error(error.code==='23505'?'Link Maps hoặc mã nội bộ đã được dùng cho một cửa hàng khác.':error.message);return data;}
 export const websiteApi={
  loadStores:()=>result(supabase.from('website_store_profiles').select('*').order('updated_at',{ascending:false})),
@@ -15,7 +16,7 @@ export const websiteApi={
   await result(supabase.storage.from('website-menus').upload(object,file,{upsert:false,contentType:file.type,cacheControl:'31536000'}));
   return supabase.storage.from('website-menus').getPublicUrl(object).data.publicUrl;
  },
- async history(page=0){return result(supabase.from('website_activity').select('*').order('created_at',{ascending:false}).order('id',{ascending:false}).range(page*30,page*30+30));},
+ async history(page=0,filters={}){return result(historyQuery(supabase.from('website_activity').select('*'),filters).order('created_at',{ascending:false}).order('id',{ascending:false}).range(page*30,page*30+30));},
  async members(){return result(supabase.from('feedback_app_members').select('email').order('email'));},
  async access(){return result(supabase.from('feedback_module_access').select('email,role').eq('module','website'));},
  async addMember(email){return result(supabase.from('feedback_app_members').upsert({email},{onConflict:'email',ignoreDuplicates:true}));},
