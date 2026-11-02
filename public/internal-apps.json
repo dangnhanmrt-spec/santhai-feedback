@@ -1,0 +1,36 @@
+{
+  "ok": true,
+  "revision": "2026-11-02.2",
+  "apps": [
+    {
+      "id": "internal",
+      "group": "SanThai",
+      "label": "Kiểm soát CTKM E–F",
+      "href": "https://santhai-ceo-dashboard.vercel.app/kiem-soat-noi-bo"
+    },
+    {
+      "id": "feedback",
+      "group": "SanThai",
+      "label": "Feedback khách hàng",
+      "href": "https://santhai-feedback.vercel.app/#feedback"
+    },
+    {
+      "id": "audit",
+      "group": "SanThai",
+      "label": "Audit nội bộ",
+      "href": "https://santhai-feedback.vercel.app/#audit"
+    },
+    {
+      "id": "website",
+      "group": "SanThai",
+      "label": "Quản lý website cửa hàng",
+      "href": "https://santhai-feedback.vercel.app/#website"
+    },
+    {
+      "id": "calendar",
+      "group": "SanThai & Gia Hỷ",
+      "label": "Lịch sự kiện",
+      "href": "https://santhai-gantt.vercel.app/#"
+    }
+  ]
+}

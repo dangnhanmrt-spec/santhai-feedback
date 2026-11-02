@@ -1,5 +1,36 @@
 {
- "$schema":"https://openapi.vercel.sh/vercel.json",
- "functions":{"api/backup.js":{"maxDuration":300},"api/backup-cron.js":{"maxDuration":300}},
- "crons":[{"path":"/api/backup-cron","schedule":"0 20 * * *"}]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/backup.js": {
+      "maxDuration": 300
+    },
+    "api/backup-cron.js": {
+      "maxDuration": 300
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/backup-cron",
+      "schedule": "0 20 * * *"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/internal-apps.json",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
 }
