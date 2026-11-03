@@ -18,7 +18,8 @@ export function mountInternalMenu(host, {currentId, currentLabel, onNavigate}) {
     const style = doc.createElement('style'); style.id = 'santhai-menu-style';
     style.textContent = `
       .santhai-app-switch{display:inline-block;position:relative;flex-shrink:0;font-family:Lexend,Arial,sans-serif;line-height:1.5;color:#e7eef7}
-      .santhai-app-switch>summary{display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:7px 10px;border:1px solid #405670;border-radius:8px;background:#132237;color:#acbdd0;font-size:13px;font-weight:500;cursor:pointer;list-style:none;white-space:nowrap}
+      .santhai-app-switch>summary{box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;height:40px;min-height:40px;padding:0 12px;border:1px solid #405670;border-radius:8px;background:#132237;color:#acbdd0;font-size:13px;font-weight:500;cursor:pointer;list-style:none;white-space:nowrap}
+      .santhai-app-switch .santhai-menu-glyph{font-size:18px;line-height:1}.santhai-app-switch .santhai-menu-chevron{font-size:14px;line-height:1;color:#9aaec3;transition:transform .15s}.santhai-app-switch[open] .santhai-menu-chevron{transform:rotate(180deg)}
       .santhai-app-switch>summary::-webkit-details-marker{display:none}
       .santhai-app-switch>summary:hover,.santhai-app-switch[open]>summary{background:#203249;color:#e7eef7;border-color:#69839f}
       .santhai-app-switch>nav{position:fixed;z-index:9999;box-sizing:border-box;padding:8px;border:1px solid #405670;border-radius:11px;background:#142235;box-shadow:0 16px 48px #0008;overflow:auto;overscroll-behavior:contain;max-height:70vh}
@@ -33,7 +34,7 @@ export function mountInternalMenu(host, {currentId, currentLabel, onNavigate}) {
       .santhai-app-switch .santhai-menu-hint{flex:none;color:#acbdd0;font-size:11px}
       .santhai-app-switch .santhai-menu-status{margin:8px 10px;color:#acbdd0;font-size:12px;line-height:1.6}
       .santhai-app-switch :focus-visible{outline:2px solid #65cef5;outline-offset:2px}
-      @media(max-width:680px){.santhai-app-switch .santhai-menu-caption{display:none}.santhai-app-switch>summary{width:38px;padding:7px}}
+      @media(max-width:680px){.santhai-app-switch .santhai-menu-caption{display:none}.santhai-app-switch>summary{padding:0 10px}}
       @media print{.santhai-app-switch{display:none}}
     `;
     doc.head.append(style);
@@ -41,8 +42,9 @@ export function mountInternalMenu(host, {currentId, currentLabel, onNavigate}) {
   const make = (tag, text, cls) => {const el=doc.createElement(tag);if(text)el.textContent=text;if(cls)el.className=cls;return el;};
   const details = make('details','','santhai-app-switch');
   const summary = make('summary'); summary.setAttribute('aria-label','Ứng dụng nội bộ');
-  const glyph=make('span','▦');glyph.setAttribute('aria-hidden','true');
-  summary.append(glyph,make('span','Ứng dụng','santhai-menu-caption'));
+  const glyph=make('span','▦','santhai-menu-glyph');glyph.setAttribute('aria-hidden','true');
+  const chevron=make('span','⌄','santhai-menu-chevron');chevron.setAttribute('aria-hidden','true');
+  summary.append(glyph,make('span','Ứng dụng','santhai-menu-caption'),chevron);
   const nav = make('nav'); nav.setAttribute('aria-label','Ứng dụng nội bộ');
   details.append(summary,nav); host.replaceChildren(details);
   let disposed=false, sequence=0, controller;

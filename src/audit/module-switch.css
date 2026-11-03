@@ -1,0 +1,27 @@
+/* Application switching, module navigation and owner tools are separate levels. */
+.module-switch{padding:0;display:block;overflow:visible;background:#080e1a;border-bottom:1px solid #1b2839}
+.module-switch *{box-sizing:border-box}
+.module-switch-inner{display:flex;align-items:center;gap:16px;max-width:1440px;min-width:0;margin:0 auto;padding:10px 20px}
+.module-launcher{display:flex;align-items:center;flex:none;padding-right:16px;border-right:1px solid #263447}
+.module-switch .santhai-app-switch>summary{height:40px;min-height:40px;background:#101d2d;border-color:#30445c;color:#bacbdd}
+.module-tabs{display:flex;align-items:center;gap:4px;min-width:0}
+.module-switch .module-tabs>button,.module-switch .module-utility{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;height:40px;min-height:40px;padding:0 14px;font-size:13px;line-height:1.5;font-weight:500;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
+.module-switch .module-tabs>button{color:#a5b7ca}
+.module-switch .module-tabs>button:hover,.module-switch .module-utility:hover{color:#e0e7ef;background:#142235}
+.module-switch .module-tabs>button.active,.module-switch .module-utility.active{color:#7dd3fc;background:#102b3e;border-color:#26506a}
+.module-switch .module-utility{margin-left:auto;padding:0 12px;color:#9aaec3;font-size:12px}
+.module-utility svg{flex:none}
+.module-switch button:focus-visible,.module-switch summary:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}
+@media(max-width:940px){
+ .module-switch-inner{flex-wrap:wrap;gap:8px 12px;padding:8px 20px}
+ .module-launcher{padding-right:0;border-right:0}
+ .module-tabs{order:3;flex-basis:100%;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#30445c transparent;padding:2px 0 5px}
+ .module-switch .module-utility{font-size:12px}
+}
+@media(max-width:680px){
+ .module-switch-inner{padding:8px 12px;gap:6px 8px}
+ .module-switch .santhai-menu-caption{display:inline}
+ .module-switch .module-tabs>button{padding:0 12px}
+ .module-switch .module-utility{padding:0 8px}
+}
+@media(prefers-reduced-motion:reduce){.module-switch button{transition:none}}

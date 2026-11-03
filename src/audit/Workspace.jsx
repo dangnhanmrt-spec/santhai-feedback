@@ -5,7 +5,27 @@ import {Modal} from './AuditApp.jsx';
 import './audit.css';
 import {inAuditScope} from './storeScope.js';
 import InternalApps from '../InternalApps.jsx';
-export function ModuleSwitcher({access,user,selected,onSelect}){return <nav className="module-switch" aria-label="Bộ phận"><InternalApps currentId={selected} currentLabel={({feedback:"Feedback khách hàng",audit:"Audit nội bộ",website:"Quản lý website cửa hàng",overview:"Tổng quan chất lượng",backup:"Sao lưu & khôi phục"})[selected]} identity={user.id} onNavigate={app=>{if(["feedback","audit","website"].includes(app.id)){onSelect(app.id);return true;}return false;}}/>{[['overview','Tổng quan'],...(access.feedback?[['feedback','Feedback khách hàng']]:[]),...(access.audit?[['audit','Audit nội bộ']]:[]),...(access.website?[['website','Website cửa hàng']]:[]),...(user.email==='dangnhan.mrt@gmail.com'?[['backup','Sao lưu & khôi phục']]:[])].map(([id,label])=><button key={id} aria-current={selected===id?'page':undefined} className={selected===id?'active':''} onClick={()=>onSelect(id)}>{label}</button>)}</nav>;}
+import './module-switch.css';
+export function ModuleSwitcher({access,user,selected,onSelect}) {
+ const modules = [
+  ['overview','Tổng quan'],
+  ...(access.feedback ? [['feedback','Feedback khách hàng']] : []),
+  ...(access.audit ? [['audit','Audit nội bộ']] : []),
+  ...(access.website ? [['website','Website cửa hàng']] : []),
+ ];
+ const labels = {overview:'Tổng quan chất lượng',feedback:'Feedback khách hàng',audit:'Audit nội bộ',website:'Quản lý website cửa hàng',backup:'Sao lưu & khôi phục'};
+ return <div className="module-switch"><div className="module-switch-inner">
+  <div className="module-launcher"><InternalApps currentId={selected} currentLabel={labels[selected]} identity={user.id} onNavigate={app=>{
+   if(['feedback','audit','website'].includes(app.id)){onSelect(app.id);return true;}
+   return false;
+  }}/></div>
+  <nav className="module-tabs" aria-label="Bộ phận">{modules.map(([id,label])=><button key={id} type="button" aria-current={selected===id?'page':undefined} className={selected===id?'active':''} onClick={()=>onSelect(id)}>{label}</button>)}</nav>
+  {user.email==='dangnhan.mrt@gmail.com'&&<button type="button" className={'module-utility'+(selected==='backup'?' active':'')} aria-current={selected==='backup'?'page':undefined} onClick={()=>onSelect('backup')}>
+   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8a8 8 0 1 1-1 8M4 3v5h5M12 8v5l3 2"/></svg>
+   <span>Sao lưu & khôi phục</span>
+  </button>}
+ </div></div>;
+}
 export function CompactOverview({access,stores,feedbacks,onSelect}){
  const [week,setWeek]=useState(monday(vietnamDate()));const [data,setData]=useState(null);const [error,setError]=useState('');const end=addDays(week,6);
  useEffect(()=>{let alive=true;setData(null);setError('');if(access.audit)loadAudit(week,end).then(d=>{if(alive)setData(d);}).catch(e=>{if(alive)setError(e.message);});return()=>{alive=false;};},[week,end,access.audit]);
