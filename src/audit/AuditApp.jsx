@@ -24,6 +24,27 @@ export default function AuditApp({stores:initialStores,user,role,onSignOut}){
  const [custom,setCustom]=useState({start:vietnamDate(),end:vietnamDate()});const [region,setRegion]=useState('');const [query,setQuery]=useState('');const [includeInactive,setIncludeInactive]=useState(false);
  const [data,setData]=useState({inspections:[],hygiene:[],categories:[]});const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [form,setForm]=useState(null);const [detail,setDetail]=useState(null);const [notice,setNotice]=useState('');const [removing,setRemoving]=useState(null);
  const period=useMemo(()=>mode==='custom'?custom:periodFor(mode,anchor),[mode,anchor,custom]);
+ const adminMenuRef=useRef(null);
+ useEffect(()=>{
+  if(role!=='admin')return;
+  const closeOutside=event=>{
+   const menu=adminMenuRef.current;
+   if(menu?.open&&!menu.contains(event.target))menu.open=false;
+  };
+  const closeOnEscape=event=>{
+   const menu=adminMenuRef.current;
+   if(event.key==='Escape'&&menu?.open){
+    menu.open=false;
+    menu.querySelector('summary')?.focus();
+   }
+  };
+  document.addEventListener('pointerdown',closeOutside,true);
+  document.addEventListener('keydown',closeOnEscape);
+  return()=>{
+   document.removeEventListener('pointerdown',closeOutside,true);
+   document.removeEventListener('keydown',closeOnEscape);
+  };
+ },[role]);
  const requestSeq=useRef(0);
  const load=useCallback(async()=>{const seq=++requestSeq.current;if(!period.start||!period.end||period.end<period.start){setError('Ngày kết thúc phải từ ngày bắt đầu.');setLoading(false);return;}setLoading(true);setError('');try{const result=await loadAudit(period.start,period.end);if(seq===requestSeq.current)setData(result);}catch(e){if(seq===requestSeq.current)setError(e.message);}finally{if(seq===requestSeq.current)setLoading(false);}},[period.start,period.end]);
  useEffect(()=>{load();},[load]);
@@ -44,7 +65,7 @@ export default function AuditApp({stores:initialStores,user,role,onSignOut}){
  return <main className="audit-app">
   <header className="audit-header">
    <div className="audit-title"><div className="audit-logo">📋 SanThai Audit</div><div className="audit-account"><div><div className="audit-muted">{user.email}</div><span className="audit-role">{ROLE[role]}</span></div><button className="audit-btn" onClick={onSignOut}>Đăng xuất</button></div></div>
-   <nav className="audit-tabs" aria-label="Chức năng Audit">{[['dashboard','📊 Tổng quan'],['week','📅 Bảng tuần'],['statistics','📈 Thống kê cửa hàng'],['history','📋 Lịch sử'],...(canWrite?[['bulk','＋ Nhập hàng loạt']]:[]),...(role==='admin'?[['activity','🕘 Nhật ký thao tác']]:[])].map(([id,label])=><button key={id} aria-current={tab===id?'page':undefined} className={tab===id?'active':''} onClick={()=>changeTab(id)}>{label}</button>)}{role==='admin'&&<details className="audit-admin-menu"><summary className={['types','access','imports'].includes(tab)?'active':''}>⚙ Quản lý <span aria-hidden="true">⌄</span></summary><div>{[['types','Loại vi phạm'],['access','Phân quyền'],['imports','Dữ liệu lịch sử']].map(([id,label])=><button key={id} aria-current={tab===id?'page':undefined} className={tab===id?'active':''} onClick={e=>{changeTab(id);e.currentTarget.closest('details').removeAttribute('open');}}>{label}</button>)}</div></details>}</nav>
+   <nav className="audit-tabs" aria-label="Chức năng Audit">{[['dashboard','📊 Tổng quan'],['week','📅 Bảng tuần'],['statistics','📈 Thống kê cửa hàng'],['history','📋 Lịch sử'],...(canWrite?[['bulk','＋ Nhập hàng loạt']]:[]),...(role==='admin'?[['activity','🕘 Nhật ký thao tác']]:[])].map(([id,label])=><button key={id} aria-current={tab===id?'page':undefined} className={tab===id?'active':''} onClick={()=>changeTab(id)}>{label}</button>)}{role==='admin'&&<details ref={adminMenuRef} className="audit-admin-menu"><summary className={['types','access','imports'].includes(tab)?'active':''}>⚙ Quản lý <span aria-hidden="true">⌄</span></summary><div>{[['types','Loại vi phạm'],['access','Phân quyền'],['imports','Dữ liệu lịch sử']].map(([id,label])=><button key={id} aria-current={tab===id?'page':undefined} className={tab===id?'active':''} onClick={e=>{changeTab(id);e.currentTarget.closest('details').removeAttribute('open');}}>{label}</button>)}</div></details>}</nav>
   </header>
   <div className="audit-page-heading"><div><h1>{pages[tab][0]} {pages[tab][1]}</h1><div className="audit-muted">{pages[tab][2]}</div></div>{reporting&&canWrite&&<div className="audit-inline"><button className="audit-btn" onClick={()=>changeTab('bulk')}>☑ Nhập hàng loạt</button><button className="audit-btn" onClick={()=>setForm({kind:'hygiene'})}>✓ Check-in vệ sinh</button><button className="audit-btn primary" onClick={()=>setForm({kind:'inspection'})}>＋ Nhập Audit</button></div>}</div>
   {reporting&&<section className="audit-filter-panel" aria-label="Bộ lọc Audit">
