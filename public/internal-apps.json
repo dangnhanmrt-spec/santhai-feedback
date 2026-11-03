@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "revision": "2026-11-02.2",
+  "revision": "2026-11-03.1",
   "apps": [
     {
       "id": "internal",
@@ -28,7 +28,7 @@
     },
     {
       "id": "calendar",
-      "group": "SanThai & Gia Hỷ",
+      "group": "Đa thương hiệu",
       "label": "Lịch sự kiện",
       "href": "https://santhai-gantt.vercel.app/#"
     }
