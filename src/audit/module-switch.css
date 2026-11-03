@@ -20,7 +20,7 @@
 }
 @media(max-width:680px){
  .module-switch-inner{padding:8px 12px;gap:6px 8px}
- .module-switch .santhai-menu-caption{display:inline}
+ .module-switch .santhai-app-switch .santhai-menu-caption{display:inline}
  .module-switch .module-tabs>button{padding:0 12px}
  .module-switch .module-utility{padding:0 8px}
 }
