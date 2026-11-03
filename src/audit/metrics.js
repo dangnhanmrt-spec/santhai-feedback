@@ -18,7 +18,8 @@ export function activeInspections(inspections) {
  return inspections.filter(i=>!i.deleted_at).map(i=>({...i,audit_violations:(i.audit_violations||[]).filter(v=>!v.deleted_at)}));
 }
 export function summarize(stores, inspections, hygiene, categories=[]) {
-  inspections=activeInspections(inspections);
+  const storeIds=new Set(stores.map(s=>s.id));
+  inspections=activeInspections(inspections).filter(i=>storeIds.has(i.store_id));
   const types=Object.fromEntries(categories.map(t=>[t.id,t.name]));
   const rows=stores.map(store=>{
     const list=inspections.filter(i=>i.store_id===store.id);
@@ -42,7 +43,8 @@ export function summarize(stores, inspections, hygiene, categories=[]) {
     repeatMap.get(key).visits.add(i.id);
   }
   return {rows,totals,checked:rows.filter(r=>r.inspections).length,
-    unchecked:rows.filter(r=>r.active&&!r.inspections).length,
+    unchecked:rows.filter(r=>(r.in_scope===undefined?r.active:r.in_scope&&!r.historical_only)&&!r.inspections).length,
     popular:[...typeMap].map(([id,count])=>({id,name:types[id]||'Loại lỗi lịch sử',count})).sort((a,b)=>b.count-a.count),
     repeats:[...repeatMap.values()].filter(r=>r.visits.size>=2).map(r=>({...r,count:r.visits.size,name:types[r.error_type_id]||'Loại lỗi lịch sử'})).sort((a,b)=>b.count-a.count)};
 }
+

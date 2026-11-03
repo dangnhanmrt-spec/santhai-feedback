@@ -31,7 +31,7 @@ export async function removeAuditEntry({inspectionId,violationId=null,reason,exp
 
 export async function loadAuditActivity({from='',to='',kind='',actor='',page=0}={}){
  let q=supabase.from('audit_activity_log').select('*')
-  .in('entity',['audit_inspections','audit_violations','audit_hygiene','audit_error_types'])
+  .in('entity',['audit_inspections','audit_violations','audit_hygiene','audit_error_types','audit_stores'])
   .order('created_at',{ascending:false}).order('id',{ascending:false});
  if(from)q=q.gte('created_at',from+'T00:00:00+07:00');
  if(to){const day=new Date(to+'T00:00:00+07:00');day.setUTCDate(day.getUTCDate()+1);q=q.lt('created_at',day.toISOString());}
@@ -46,4 +46,15 @@ export async function loadAuditActivity({from='',to='',kind='',actor='',page=0}=
 export async function saveBulkAudit({id,kind,rows}){
  const {data,error}=await supabase.rpc('audit_save_bulk',{p_request_id:id,p_kind:kind,p_rows:rows});
  if(error)throw error;return data;
+}
+
+
+export async function loadFeedbackStoreChoices(){
+ const {data,error}=await supabase.rpc('audit_feedback_store_choices');if(error)throw error;return data;
+}
+export async function addAuditStore(store){
+ const {data,error}=await supabase.rpc('audit_add_store',{p_store:store});if(error)throw error;return data;
+}
+export async function setAuditStoreScope(store,inScope,expected){
+ const {data,error}=await supabase.rpc('audit_set_store_scope',{p_store:store,p_in_scope:inScope,p_expected_in_scope:expected});if(error)throw error;return data;
 }

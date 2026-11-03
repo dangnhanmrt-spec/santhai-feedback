@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {allRows,saveBulkAudit} from './api.js';
+import {inAuditScope} from './storeScope.js';
 import {vietnamDate} from './metrics.js';
 import {buildBulkRows,bulkPayload,reconcileBulkRows,HYGIENE_STATUS as STATUS} from './bulk.js';
 const dateLabel=d=>d.split('-').reverse().join('/');
@@ -27,7 +28,7 @@ export default function BulkEntry({stores,categories,onSaved,actorEmail}){
  const [rows,setRows]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[result,setResult]=useState(null),[uncertain,setUncertain]=useState(false),[reviewFilter,setReviewFilter]=useState('all');
  const panel=useRef(null),request=useRef(pending),inFlight=useRef(false),baseline=useRef({kind:null,rows:[]});
  useEffect(()=>{if(error)panel.current?.querySelector('[role=alert]')?.scrollIntoView({block:'nearest'});},[error]);
- const activeStores=useMemo(()=>stores.filter(s=>s.active!==false),[stores]);
+ const activeStores=useMemo(()=>stores.filter(inAuditScope),[stores]);
  const activeTypes=categories.filter(c=>c.active);
  const regions=[...new Set(activeStores.map(s=>s.regionName||s.region_id))].sort((a,b)=>a.localeCompare(b,'vi'));
  const selectedSet=new Set(selected);
@@ -132,3 +133,4 @@ export default function BulkEntry({stores,categories,onSaved,actorEmail}){
   </form>}
  </section>;
 }
+

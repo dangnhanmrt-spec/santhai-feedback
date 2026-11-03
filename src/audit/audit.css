@@ -1,4 +1,18 @@
 /* Shared visual language with Feedback: Lexend, navy surfaces, cyan navigation. */
+.audit-store-manager .audit-section-heading{align-items:flex-start;gap:16px;flex-wrap:wrap}
+.audit-store-manager h2{margin-bottom:4px}
+.audit-scope-counts{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:18px 0}
+.audit-scope-filters{display:grid;grid-template-columns:minmax(180px,1fr) minmax(200px,1fr) minmax(140px,.6fr);gap:14px;margin:22px 0 14px}
+.audit-store-add{background:#142033;border:1px solid #34475e;border-radius:10px;padding:18px;margin:20px 0}
+.audit-store-add h3{font-size:15px;margin:0}
+.audit-store-add p{margin:6px 0 14px}
+.audit-scope-add-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.audit-store-add .audit-inline{margin-top:16px}
+.audit-store-manager .audit-filter-summary{padding:0 0 12px}
+.audit-store-manager td{font-size:13px}
+.audit-store-manager .audit-scope-action{text-align:right;width:110px}
+.audit-scope-show{color:#7dd3fc;border-color:#38bdf850}
+@media(max-width:640px){.audit-scope-filters,.audit-scope-add-fields{grid-template-columns:1fr}.audit-store-manager{padding:18px 14px}.audit-store-manager table{min-width:620px}}
 .audit-app,.audit-dialog,.module-switch{--audit-text:#e0e7ef;--audit-muted:#9aaec3;--audit-line:rgba(255,255,255,.09);--audit-surface:rgba(255,255,255,.03);--audit-accent:#38bdf8;font-family:'Lexend',Arial,sans-serif;color:var(--audit-text);font-size:14px;line-height:1.55}
 .audit-app{max-width:1400px;margin:auto;padding:0 20px 48px}
 .audit-app *,.audit-dialog *{box-sizing:border-box}
@@ -246,4 +260,5 @@
  .audit-bulk-table.hygiene th:nth-child(3){width:165px}
  .audit-bulk-table.hygiene th:nth-child(4){width:250px}
 }
+
 

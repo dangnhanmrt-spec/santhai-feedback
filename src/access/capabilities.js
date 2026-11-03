@@ -25,7 +25,7 @@ export function describeAccount(email,rows=[]){
    if(role==='admin'){
     item.view.push('Nhật ký thao tác','Dữ liệu lịch sử và mục cần rà soát','Danh sách phân quyền');
     item.operate.push('Xóa lỗi hoặc lượt Audit, có ghi lý do');
-    item.manage=['Thêm và ngừng sử dụng loại vi phạm','Cấp, đổi và thu hồi quyền Audit cho tài khoản có sẵn, trừ chủ hệ thống'];
+    item.manage=['Thêm cửa hàng từ Feedback, ẩn và hiện trong phạm vi Audit','Thêm và ngừng sử dụng loại vi phạm','Cấp, đổi và thu hồi quyền Audit cho tài khoản có sẵn, trừ chủ hệ thống'];
    }
   }
   if(id==='website'){
@@ -41,3 +41,4 @@ export function describeAccount(email,rows=[]){
   {id:'backup',title:'Sao lưu & khôi phục',role:owner?'admin':'none',label:owner?'Chủ hệ thống':'Không truy cập',view:owner?['Trạng thái và lịch sử sao lưu, liên kết bản sao']:[],operate:owner?['Sao lưu ngay','Chọn bản và xác nhận khôi phục']:[],manage:[]}
  ]};
 }
+
